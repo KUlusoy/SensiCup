@@ -4,7 +4,7 @@ import time
 import random
 
 # Configuration
-WEB_APP_URL = "http://localhost:5000"  # Your web app URL
+WEB_APP_URL = "https://sensicup-2c860cb629cf.herokuapp.com/"  # Your web app URL
 CUP_ID = "CUP123"  # Your cup's unique identifier
 
 def read_ph_sensor():
