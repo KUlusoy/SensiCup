@@ -1542,7 +1542,7 @@ def contact():
                 </div>
                 
                 <div class="logo-section">
-                    Insert Logo of SensiCup Here???
+                    <img src="https://drive.google.com/file/d/1ii-vM-FDnLsPqt5-9NjIBvQ9VMaoMlrg/view?usp=sharing">
                 </div>
             </div>
         </div>
