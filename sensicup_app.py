@@ -1,11 +1,13 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, Response
 from flask_socketio import SocketIO, emit
 import sqlite3
 import json
+import os
 from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import cv2 # Import OpenCV
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -40,6 +42,44 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
+
+# --- Camera Stream Functions ---
+# This generator function captures frames from the webcam
+# and encodes them as JPEG images to be streamed.
+def gen_frames():
+    # Use 0 for default webcam. If you have multiple, try 1, 2, etc.
+    cap = cv2.VideoCapture(1)
+    if not cap.isOpened():
+        print("Error: Could not open video device.")
+        return
+
+    while True:
+        success, frame = cap.read()
+        if not success:
+            print("Error: Could not read frame from camera.")
+            break
+        try:
+            # Encode frame as JPEG
+            ret, buffer = cv2.imencode('.jpg', frame)
+            if not ret:
+                print("Error: Could not encode frame.")
+                continue
+            frame = buffer.tobytes()
+            # Yield the frame in a multipart response format
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        except Exception as e:
+            print(f"Error processing frame: {e}")
+            break
+    cap.release() # Release the camera when done
+
+# This new endpoint will serve the live video feed.
+@app.route('/video_feed')
+def video_feed():
+    # Return a multipart response with the generated frames
+    return Response(gen_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+# --- End Camera Stream Functions ---
 
 # Home page - updated design (removed about route)
 @app.route('/')
@@ -755,7 +795,7 @@ def your_cup():
                     <h2 class="live-feed-title">Water Image in Real Time</h2>
                     <div class="feed-grid">
                         <div class="camera-feed">
-                            Insert real-time Image of water in SensiCup
+                            <img id="live-video" src="/video_feed" alt="Live Water Feed" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />
                         </div>
                         <div class="particles-section">
                             <h3 class="particles-title">Particles Found</h3>
@@ -1726,5 +1766,5 @@ def handle_latest_data(data):
 if __name__ == '__main__':
     init_db()
     import os
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001))
     socketio.run(app, debug=False, host='0.0.0.0', port=port)
