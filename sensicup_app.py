@@ -1,19 +1,13 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, Response
 from flask_socketio import SocketIO, emit
 import sqlite3
 import json
 from datetime import datetime
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import cv2 # Import OpenCV
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 socketio = SocketIO(app)
-
-# Email configuration
-EMAIL_ADDRESS = "sensicupteam@gmail.com"
-EMAIL_PASSWORD = "B@ngB@ngMonk3y98687"  # Use app password, not regular password
 
 # Initialize database
 def init_db():
@@ -30,20 +24,55 @@ def init_db():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS user_photos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cup_id TEXT,
-            description TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
     conn.commit()
     conn.close()
 
-# Home page - updated design (removed about route)
+# --- Camera Stream Functions ---
+# This generator function captures frames from the webcam
+# and encodes them as JPEG images to be streamed.
+def gen_frames():
+    # Use 0 for default webcam. If you have multiple, try 1, 2, etc.
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Error: Could not open video device.")
+        return
+
+    while True:
+        success, frame = cap.read()
+        if not success:
+            print("Error: Could not read frame from camera.")
+            break
+        try:
+            # Encode frame as JPEG
+            ret, buffer = cv2.imencode('.jpg', frame)
+            if not ret:
+                print("Error: Could not encode frame.")
+                continue
+            frame = buffer.tobytes()
+            # Yield the frame in a multipart response format
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        except Exception as e:
+            print(f"Error processing frame: {e}")
+            break
+    cap.release() # Release the camera when done
+
+# This new endpoint will serve the live video feed.
+@app.route('/video_feed')
+def video_feed():
+    # Return a multipart response with the generated frames
+    return Response(gen_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+# --- End Camera Stream Functions ---
+
+
+# Home page - modern landing page design
 @app.route('/')
 def home():
+    # This route also returns a hardcoded HTML string.
+    # For consistency and best practice, you might consider moving this
+    # into a template file as well (e.g., templates/index.html)
+    # and returning render_template('index.html').
     return '''
     <!DOCTYPE html>
     <html lang="en">
@@ -62,8 +91,7 @@ def home():
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 line-height: 1.6;
                 color: #333;
-                background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-                min-height: 100vh;
+                overflow-x: hidden;
             }
             
             /* Header */
@@ -89,8 +117,7 @@ def home():
             .logo {
                 font-size: 1.5rem;
                 font-weight: bold;
-                color: #1976d2;
-                text-decoration: none;
+                color: #2c5aa0;
             }
             
             .nav-links {
@@ -103,28 +130,22 @@ def home():
                 text-decoration: none;
                 color: #333;
                 font-weight: 500;
-                padding: 0.5rem 1rem;
-                border-radius: 20px;
-                transition: all 0.3s ease;
+                transition: color 0.3s ease;
             }
             
             .nav-links a:hover {
-                background: #1976d2;
-                color: white;
-            }
-            
-            .nav-links a.active {
-                background: #333;
-                color: white;
+                color: #2c5aa0;
             }
             
             /* Hero Section */
             .hero {
                 height: 100vh;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 text-align: center;
+                color: white;
                 position: relative;
                 overflow: hidden;
             }
@@ -136,7 +157,7 @@ def home():
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 200"><path d="M0,100 C150,200 350,0 500,100 C650,200 850,0 1000,100 L1000,200 L0,200 Z" fill="rgba(25,118,210,0.1)"/></svg>') repeat-x;
+                background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 200"><path d="M0,100 C150,200 350,0 500,100 C650,200 850,0 1000,100 L1000,200 L0,200 Z" fill="rgba(255,255,255,0.1)"/></svg>') repeat-x;
                 animation: wave 20s infinite linear;
             }
             
@@ -146,133 +167,170 @@ def home():
             }
             
             .hero-content {
-                max-width: 600px;
+                max-width: 800px;
                 padding: 2rem;
                 z-index: 1;
                 position: relative;
             }
             
             .hero h1 {
-                font-size: 4rem;
+                font-size: 3.5rem;
                 margin-bottom: 1rem;
                 font-weight: 700;
-                color: #1976d2;
-                text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
             }
             
-            .hero .tagline {
-                font-size: 1.5rem;
-                margin-bottom: 3rem;
-                color: #666;
-                font-weight: 300;
+            .hero p {
+                font-size: 1.25rem;
+                margin-bottom: 2rem;
+                opacity: 0.9;
             }
             
-            .cta-button {
-                background: #1976d2;
-                color: white;
-                padding: 15px 40px;
-                font-size: 1.2rem;
-                font-weight: 600;
+            .cta-form {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                padding: 2rem;
+                border-radius: 15px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                max-width: 400px;
+                margin: 0 auto;
+            }
+            
+            .cta-form input {
+                width: 100%;
+                padding: 15px;
                 border: none;
                 border-radius: 50px;
+                font-size: 1rem;
+                margin-bottom: 1rem;
+                outline: none;
+                background: rgba(255, 255, 255, 0.9);
+            }
+            
+            .cta-form button {
+                width: 100%;
+                padding: 15px;
+                background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+                color: white;
+                border: none;
+                border-radius: 50px;
+                font-size: 1rem;
+                font-weight: 600;
                 cursor: pointer;
-                text-decoration: none;
-                display: inline-block;
-                transition: all 0.3s ease;
-                box-shadow: 0 10px 30px rgba(25, 118, 210, 0.3);
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
             }
             
-            .cta-button:hover {
-                transform: translateY(-3px);
-                box-shadow: 0 15px 40px rgba(25, 118, 210, 0.4);
-                background: #1565c0;
+            .cta-form button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 30px rgba(238, 90, 82, 0.4);
             }
             
-            /* Content Sections */
-            .content-section {
+            /* About Section */
+            .about {
                 padding: 5rem 2rem;
+                background: #f8f9fa;
+            }
+            
+            .container {
                 max-width: 1200px;
                 margin: 0 auto;
             }
             
-            .section-grid {
+            .about-grid {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 4rem;
                 align-items: center;
-                margin-bottom: 5rem;
             }
             
-            .section-content h2 {
+            .about-content h2 {
                 font-size: 2.5rem;
-                margin-bottom: 1.5rem;
-                color: #1976d2;
+                margin-bottom: 1rem;
+                color: #2c5aa0;
             }
             
-            .section-content p {
+            .about-content p {
                 color: #666;
                 font-size: 1.1rem;
                 line-height: 1.8;
-                margin-bottom: 1.5rem;
             }
             
-            .prototype-image {
-                background: #f5f5f5;
+            .about-image {
+                background: #ddd;
+                height: 300px;
                 border-radius: 15px;
-                padding: 2rem;
-                text-align: center;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #888;
+                font-size: 1.1rem;
             }
             
-            .prototype-image img {
-                max-width: 100%;
-                height: auto;
-                border-radius: 10px;
-            }
-            
-            .team-section {
+            /* Story Section */
+            .story {
+                padding: 5rem 2rem;
                 background: white;
-                border-radius: 20px;
-                padding: 3rem;
-                margin-top: 5rem;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-                text-align: center;
             }
             
-            .team-section h2 {
-                font-size: 2.5rem;
-                margin-bottom: 2rem;
-                color: #1976d2;
-            }
-            
-            .team-grid {
+            .story-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 2rem;
-                margin-top: 2rem;
+                grid-template-columns: 1fr 1fr;
+                gap: 4rem;
+                align-items: center;
             }
             
-            .team-member {
-                text-align: center;
+            .story-image {
+                background: #ddd;
+                height: 300px;
+                border-radius: 15px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #888;
+                font-size: 1.1rem;
             }
             
-            .team-member h4 {
-                color: #1976d2;
-                margin-bottom: 0.5rem;
+            .story-content h2 {
+                font-size: 2.5rem;
+                margin-bottom: 1rem;
+                color: #2c5aa0;
             }
             
-            .team-member p {
+            .story-content p {
                 color: #666;
-                font-size: 0.9rem;
+                font-size: 1.1rem;
+                line-height: 1.8;
             }
             
-            /* Footer */
-            .footer {
-                background: #333;
-                color: white;
+            /* Team Section */
+            .team {
+                padding: 5rem 2rem;
+                background: #f8f9fa;
+            }
+            
+            .team h2 {
                 text-align: center;
-                padding: 2rem;
-                margin-top: 5rem;
+                font-size: 2.5rem;
+                margin-bottom: 3rem;
+                color: #2c5aa0;
+            }
+            
+            .team-image {
+                background: #ddd;
+                height: 400px;
+                border-radius: 15px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #888;
+                font-size: 1.1rem;
+                margin-bottom: 2rem;
+            }
+            
+            .team-info {
+                text-align: center;
+                color: #666;
+                line-height: 1.6;
             }
             
             /* Responsive Design */
@@ -281,7 +339,8 @@ def home():
                     font-size: 2.5rem;
                 }
                 
-                .section-grid {
+                .about-grid,
+                .story-grid {
                     grid-template-columns: 1fr;
                     gap: 2rem;
                 }
@@ -290,1386 +349,88 @@ def home():
                     display: none;
                 }
                 
-                .team-grid {
-                    grid-template-columns: 1fr;
+                .hero {
+                    padding: 2rem 1rem;
+                }
+                
+                .about, .story, .team {
+                    padding: 3rem 1rem;
                 }
             }
         </style>
     </head>
     <body>
-        <!-- Header -->
         <header class="header">
             <nav class="nav">
-                <a href="/" class="logo">SensiCup</a>
+                <div class="logo">SensiCup</div>
                 <ul class="nav-links">
-                    <li><a href="/" class="active">Home</a></li>
-                    <li><a href="/your-cup">Your Cup</a></li>
-                    <li><a href="/database">Database</a></li>
-                    <li><a href="/contact">Contact Us</a></li>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#story">Story</a></li>
+                    <li><a href="#team">Team</a></li>
                 </ul>
             </nav>
         </header>
 
-        <!-- Hero Section -->
-        <section class="hero">
+        <section id="home" class="hero">
             <div class="hero-content">
                 <h1>SensiCup</h1>
-                <p class="tagline">A health check for your water.</p>
-                <a href="/your-cup" class="cta-button">Enter your cup code now!</a>
+                <p>Smart Water Quality Monitoring</p>
+                <form class="cta-form" action="/dashboard" method="POST">
+                    <input type="text" name="cup_code" placeholder="Enter your cup code here" required>
+                    <button type="submit">Connect to Your Cup</button>
+                </form>
             </div>
         </section>
 
-        <!-- Content Section -->
-        <div class="content-section">
-            <div class="section-grid">
-                <div class="section-content">
-                    <h2>About SensiCup</h2>
-                    <p>SensiCup was designed to be a practical tool for measuring your water's life quality without having to purchase different counterparts or sending water to laboratories.</p>
-                </div>
-                <div class="prototype-image">
-                    <p>Insert Final Prototype Image Here</p>
-                </div>
-            </div>
-            
-            <div class="section-grid">
-                <div class="prototype-image">
-                    <p>Insert Image of Poor Water Pipes from Schools Here</p>
-                </div>
-                <div class="section-content">
-                    <h2>Our Story</h2>
-                    <p>After studying in schools with poor water quality, we were determined to take action and measure the water quality in our schools in a friendly and convenient manner. SensiCup provides an affordable</p>
+        <section id="about" class="about">
+            <div class="container">
+                <div class="about-grid">
+                    <div class="about-content">
+                        <h2>About SensiCup</h2>
+                        <p>SensiCup brings you the perfect blend of cutting-edge technology and everyday convenience. Our smart water monitoring system provides real-time insights into your water quality, ensuring you always know what you're drinking. With advanced sensors and intelligent analysis, SensiCup delivers professional-grade water testing right in your hands.</p>
+                    </div>
+                    <div class="about-image">
+                        Smart Cup Prototype Image Here
+                    </div>
                 </div>
             </div>
-            
-            <div class="team-section">
+        </section>
+
+        <section id="story" class="story">
+            <div class="container">
+                <div class="story-grid">
+                    <div class="story-image">
+                        Smart Badge of Your Water Here from SensiCup
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="team" class="team">
+            <div class="container">
                 <h2>Our Team</h2>
-                <p>Insert Group Image Here</p>
-                <div class="team-grid">
-                    <div class="team-member">
-                        <h4>Kubra Ulusoy</h4>
-                        <p>Team Lead/Software Engineer</p>
-                    </div>
-                    <div class="team-member">
-                        <h4>Jasmine Algama</h4>
-                        <p>Hardware Engineer</p>
-                    </div>
-                    <div class="team-member">
-                        <h4>Samuel Baxter</h4>
-                        <p>Software/Hardware Engineer</p>
-                    </div>
-                    <div class="team-member">
-                        <h4>Nafrin Neha</h4>
-                        <p>3D CAD Designer</p>
-                    </div>
-                    <div class="team-member">
-                        <h4>Stephanie Yang</h4>
-                        <p>Software Engineer</p>
-                    </div>
+                <div class="team-image">
+                    Smart Group Image Here
                 </div>
-                <p style="margin-top: 2rem; font-style: italic;">Body text for whatever you'd like to add more to the subheading.</p>
+                <div class="team-info">
+                    <p><strong>Kubra Ulusoy:</strong> Team Lead/Software Engineer, <strong>Jasmine Algama:</strong> Hardware Engineer, <strong>Samuel Baxter:</strong> Hardware Engineer, <strong>Nafrin Neha:</strong> 3D CAD Designer, and <strong>Stephanie Yang:</strong> Software Engineer </p>
+                    <br>
+                    <p><em>The SensiCup</em></p>
+                </div>
             </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <p>&copy; 2024 SensiCup. All rights reserved.</p>
-        </footer>
+        </section>
     </body>
     </html>
     '''
 
-# Your Cup page - updated to show content only after entering cup code
-@app.route('/your-cup')
-def your_cup():
-    return '''
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Your Cup - SensiCup</title>
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
-            
-            body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background: #f8f9fa;
-                min-height: 100vh;
-                padding-top: 80px;
-            }
-            
-            /* Header */
-            .header {
-                position: fixed;
-                top: 0;
-                width: 100%;
-                background: white;
-                padding: 1rem 2rem;
-                z-index: 1000;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            }
-            
-            .nav {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                max-width: 1200px;
-                margin: 0 auto;
-            }
-            
-            .logo {
-                font-size: 1.5rem;
-                font-weight: bold;
-                color: #333;
-                text-decoration: none;
-            }
-            
-            .nav-links {
-                display: flex;
-                list-style: none;
-                gap: 2rem;
-            }
-            
-            .nav-links a {
-                text-decoration: none;
-                color: #333;
-                font-weight: 500;
-                padding: 0.5rem 1rem;
-                border-radius: 20px;
-                transition: all 0.3s ease;
-            }
-            
-            .nav-links a:hover {
-                background: #333;
-                color: white;
-            }
-            
-            .nav-links a.active {
-                background: #333;
-                color: white;
-            }
-            
-            /* Main Content */
-            .container {
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 3rem 2rem;
-                text-align: center;
-            }
-            
-            .page-title {
-                font-size: 3rem;
-                margin-bottom: 2rem;
-                color: #333;
-            }
-            
-            .cup-code-section {
-                background: white;
-                border-radius: 15px;
-                padding: 3rem;
-                margin-bottom: 3rem;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            }
-            
-            .cup-code-input {
-                padding: 15px 30px;
-                font-size: 1.2rem;
-                border: 2px solid #ddd;
-                border-radius: 50px;
-                width: 300px;
-                margin-bottom: 2rem;
-                outline: none;
-                transition: border-color 0.3s ease;
-            }
-            
-            .cup-code-input:focus {
-                border-color: #1976d2;
-            }
-            
-            .connect-btn {
-                background: #1976d2;
-                color: white;
-                padding: 15px 40px;
-                font-size: 1.2rem;
-                border: none;
-                border-radius: 50px;
-                cursor: pointer;
-                margin-top: 1rem;
-                transition: all 0.3s ease;
-            }
-            
-            .connect-btn:hover {
-                background: #1565c0;
-                transform: translateY(-2px);
-            }
-            
-            /* Hidden content that shows after entering cup code */
-            .hidden-content {
-                display: none;
-                animation: fadeIn 0.5s ease-in;
-            }
-            
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(20px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            
-            .status-section {
-                margin: 3rem 0;
-            }
-            
-            .status-text {
-                font-size: 2rem;
-                margin-bottom: 1rem;
-                color: #333;
-            }
-            
-            .status-bar {
-                height: 30px;
-                background: linear-gradient(to right, #ff4444, #ffaa00, #00aa00);
-                border-radius: 15px;
-                margin: 0 auto;
-                width: 300px;
-                position: relative;
-            }
-            
-            .status-indicator {
-                position: absolute;
-                top: -5px;
-                width: 0;
-                height: 0;
-                border-left: 10px solid transparent;
-                border-right: 10px solid transparent;
-                border-top: 20px solid #333;
-                left: 75%;
-                transform: translateX(-50%);
-            }
-            
-            /* Cup Diagram Section */
-            .diagram-section {
-                background: white;
-                border-radius: 15px;
-                padding: 3rem;
-                margin: 3rem 0;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            }
-            
-            .diagram-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 3rem;
-                align-items: center;
-            }
-            
-            .cup-diagram {
-                text-align: center;
-            }
-            
-            .cup-diagram img {
-                max-width: 100%;
-                height: auto;
-                border-radius: 10px;
-            }
-            
-            .sensor-info {
-                display: flex;
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            .sensor-card {
-                background: #1976d2;
-                color: white;
-                padding: 1rem 2rem;
-                border-radius: 10px;
-                text-align: left;
-                font-weight: 500;
-            }
-            
-            /* Live Feed Section */
-            .live-feed-section {
-                background: white;
-                border-radius: 15px;
-                padding: 3rem;
-                margin: 3rem 0;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            }
-            
-            .live-feed-title {
-                font-size: 2rem;
-                margin-bottom: 2rem;
-                color: #333;
-            }
-            
-            .feed-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 3rem;
-                align-items: center;
-            }
-            
-            .camera-feed {
-                background: #f0f0f0;
-                border-radius: 50%;
-                width: 300px;
-                height: 300px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #666;
-                margin: 0 auto;
-                border: 3px solid #ddd;
-            }
-            
-            .particles-section {
-                text-align: center;
-            }
-            
-            .particles-title {
-                font-size: 1.5rem;
-                margin-bottom: 1rem;
-                color: #333;
-            }
-            
-            .particles-display {
-                background: #f0f0f0;
-                border-radius: 10px;
-                padding: 2rem;
-                color: #666;
-                min-height: 200px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            
-            /* Footer */
-            .footer {
-                background: #333;
-                color: white;
-                text-align: center;
-                padding: 2rem;
-                margin-top: 5rem;
-            }
-            
-            .footer-grid {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 2rem;
-                max-width: 1200px;
-                margin: 0 auto;
-            }
-            
-            .footer-section h4 {
-                margin-bottom: 1rem;
-            }
-            
-            .footer-section p {
-                color: #ccc;
-                font-size: 0.9rem;
-            }
-            
-            /* Responsive Design */
-            @media (max-width: 768px) {
-                .diagram-grid,
-                .feed-grid {
-                    grid-template-columns: 1fr;
-                    gap: 2rem;
-                }
-                
-                .nav-links {
-                    display: none;
-                }
-                
-                .page-title {
-                    font-size: 2rem;
-                }
-                
-                .cup-code-input {
-                    width: 100%;
-                    max-width: 300px;
-                }
-                
-                .camera-feed {
-                    width: 250px;
-                    height: 250px;
-                }
-                
-                .footer-grid {
-                    grid-template-columns: 1fr;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <!-- Header -->
-        <header class="header">
-            <nav class="nav">
-                <a href="/" class="logo">SensiCup</a>
-                <ul class="nav-links">
-                    <li><a href="/">Home</a></li>
-                    <li><a href="/your-cup" class="active">Your Cup</a></li>
-                    <li><a href="/database">Database</a></li>
-                    <li><a href="/contact">Contact Us</a></li>
-                </ul>
-            </nav>
-        </header>
+# Enhanced Dashboard with modern design
+@app.route('/dashboard', methods=['POST'])
+def dashboard():
+    cup_code = request.form['cup_code']
+    # Use render_template to serve the dashboard.html file
+    return render_template('dashboard.html', cup_code=cup_code)
 
-        <div class="container">
-            <h1 class="page-title">Enter Your Cup Code Here:</h1>
-            
-            <div class="cup-code-section">
-                <input type="text" id="cup_code" class="cup-code-input" placeholder="Cup Code" required>
-                <br>
-                <button type="button" class="connect-btn" onclick="connectToCup()">Connect</button>
-            </div>
-            
-            <!-- Hidden content that appears after entering cup code -->
-            <div id="hidden-content" class="hidden-content">
-                <div class="status-section">
-                    <p class="status-text">Your water is <span id="water-status">Good</span></p>
-                    <div class="status-bar">
-                        <div class="status-indicator"></div>
-                    </div>
-                </div>
-                
-                <div class="diagram-section">
-                    <div class="diagram-grid">
-                        <div class="cup-diagram">
-                            <div style="background: #f0f0f0; min-height: 400px; width: 100%; display: flex; align-items: center; justify-content: center; border-radius: 10px;">
-                                Insert SensiCup Diagram Here
-                            </div>
-                        </div>
-                        <div class="sensor-info">
-                            <div class="sensor-card">pH Level: <span id="ph-display">7.2</span></div>
-                            <div class="sensor-card">TDS Level: <span id="tds-display">245 ppm</span></div>
-                            <div class="sensor-card">Salinity Level: <span id="salinity-display">0.02%</span></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="live-feed-section">
-                    <h2 class="live-feed-title">Water Image in Real Time</h2>
-                    <div class="feed-grid">
-                        <div class="camera-feed">
-                            Insert real-time Image of water in SensiCup
-                        </div>
-                        <div class="particles-section">
-                            <h3 class="particles-title">Particles Found</h3>
-                            <div class="particles-display">
-                                <div>
-                                    <p>✅ No harmful particles detected</p>
-                                    <p>🔬 Cleanliness Score: <span id="cleanliness-display">85</span>/100</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <div class="footer-grid">
-                <div class="footer-section">
-                    <h4>SensiCup</h4>
-                </div>
-                <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
-                </div>
-                <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
-                </div>
-            </div>
-        </footer>
-        
-        <script>
-            function connectToCup() {
-                const cupCode = document.getElementById('cup_code').value.trim();
-                
-                if (!cupCode) {
-                    alert('Please enter a cup code');
-                    return;
-                }
-                
-                // Show the hidden content with animation
-                const hiddenContent = document.getElementById('hidden-content');
-                hiddenContent.style.display = 'block';
-                
-                // Scroll to the revealed content
-                setTimeout(() => {
-                    hiddenContent.scrollIntoView({ 
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }, 100);
-                
-                // Update status based on cup code (you can customize this logic)
-                updateStatusBasedOnCupCode(cupCode);
-            }
-            
-            function updateStatusBasedOnCupCode(cupCode) {
-                // Hardcoded values for demo - you can customize this
-                let status = 'Good';
-                let ph = '7.2';
-                let tds = '245 ppm';
-                let salinity = '0.02%';
-                let cleanliness = '85';
-                
-                // Example: different values for different cup codes
-                if (cupCode.toUpperCase() === 'CUP123') {
-                    status = 'Excellent';
-                    ph = '7.4';
-                    tds = '220 ppm';
-                    salinity = '0.01%';
-                    cleanliness = '92';
-                } else if (cupCode.toUpperCase() === 'CUP456') {
-                    status = 'Fair';
-                    ph = '6.8';
-                    tds = '350 ppm';
-                    salinity = '0.05%';
-                    cleanliness = '68';
-                } else if (cupCode.toUpperCase() === 'CUP789') {
-                    status = 'Poor';
-                    ph = '5.9';
-                    tds = '450 ppm';
-                    salinity = '0.08%';
-                    cleanliness = '42';
-                }
-                
-                // Update the display
-                document.getElementById('water-status').textContent = status;
-                document.getElementById('ph-display').textContent = ph;
-                document.getElementById('tds-display').textContent = tds;
-                document.getElementById('salinity-display').textContent = salinity;
-                document.getElementById('cleanliness-display').textContent = cleanliness;
-            }
-            
-            // Allow Enter key to connect
-            document.getElementById('cup_code').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    connectToCup();
-                }
-            });
-        </script>
-    </body>
-    </html>
-    '''
-
-# Database page - updated with "Database Section" instead of "Related Products"
-@app.route('/database')
-def database():
-    return '''
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Database - SensiCup</title>
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
-            
-            body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background: #f8f9fa;
-                min-height: 100vh;
-                padding-top: 80px;
-            }
-            
-            /* Header */
-            .header {
-                position: fixed;
-                top: 0;
-                width: 100%;
-                background: white;
-                padding: 1rem 2rem;
-                z-index: 1000;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            }
-            
-            .nav {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                max-width: 1200px;
-                margin: 0 auto;
-            }
-            
-            .logo {
-                font-size: 1.5rem;
-                font-weight: bold;
-                color: #333;
-                text-decoration: none;
-            }
-            
-            .nav-links {
-                display: flex;
-                list-style: none;
-                gap: 2rem;
-            }
-            
-            .nav-links a {
-                text-decoration: none;
-                color: #333;
-                font-weight: 500;
-                padding: 0.5rem 1rem;
-                border-radius: 20px;
-                transition: all 0.3s ease;
-            }
-            
-            .nav-links a:hover {
-                background: #333;
-                color: white;
-            }
-            
-            .nav-links a.active {
-                background: #333;
-                color: white;
-            }
-            
-            /* Main Content */
-            .container {
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 3rem 2rem;
-            }
-            
-            .upload-section {
-                background: white;
-                border-radius: 15px;
-                padding: 3rem;
-                margin-bottom: 3rem;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 3rem;
-                align-items: center;
-            }
-            
-            .upload-area {
-                background: #f0f0f0;
-                border: 2px dashed #ccc;
-                border-radius: 15px;
-                padding: 3rem;
-                text-align: center;
-                color: #666;
-                min-height: 300px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            
-            .upload-content h2 {
-                font-size: 2rem;
-                margin-bottom: 1rem;
-                color: #333;
-            }
-            
-            .upload-content p {
-                color: #666;
-                line-height: 1.6;
-                margin-bottom: 2rem;
-            }
-            
-            .upload-form {
-                margin-top: 2rem;
-            }
-            
-            .upload-form input[type="text"] {
-                width: 100%;
-                padding: 15px;
-                border: 2px solid #ddd;
-                border-radius: 10px;
-                font-size: 1rem;
-                margin-bottom: 1rem;
-                outline: none;
-                transition: border-color 0.3s ease;
-            }
-            
-            .upload-form input[type="text"]:focus {
-                border-color: #1976d2;
-            }
-            
-            .submit-btn {
-                width: 100%;
-                background: #333;
-                color: white;
-                padding: 15px;
-                border: none;
-                border-radius: 10px;
-                font-size: 1rem;
-                cursor: pointer;
-                transition: background 0.3s ease;
-            }
-            
-            .submit-btn:hover {
-                background: #555;
-            }
-            
-            .disclaimer {
-                font-size: 0.9rem;
-                color: #666;
-                margin-top: 1rem;
-                font-style: italic;
-            }
-            
-            /* Database Section */
-            .database-section {
-                margin-top: 4rem;
-            }
-            
-            .database-section h2 {
-                font-size: 2rem;
-                margin-bottom: 2rem;
-                color: #333;
-            }
-            
-            .database-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                gap: 2rem;
-            }
-            
-            .database-card {
-                background: white;
-                border-radius: 15px;
-                padding: 2rem;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-                text-align: center;
-            }
-            
-            .database-image {
-                background: #f0f0f0;
-                height: 200px;
-                border-radius: 10px;
-                margin-bottom: 1rem;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #666;
-            }
-            
-            .database-card h3 {
-                margin-bottom: 0.5rem;
-                color: #333;
-            }
-            
-            .database-card p {
-                color: #666;
-                font-size: 0.9rem;
-            }
-            
-            /* Footer */
-            .footer {
-                background: #333;
-                color: white;
-                text-align: center;
-                padding: 2rem;
-                margin-top: 5rem;
-            }
-            
-            .footer-grid {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 2rem;
-                max-width: 1200px;
-                margin: 0 auto;
-            }
-            
-            .footer-section h4 {
-                margin-bottom: 1rem;
-            }
-            
-            .footer-section p {
-                color: #ccc;
-                font-size: 0.9rem;
-            }
-            
-            /* Responsive Design */
-            @media (max-width: 768px) {
-                .upload-section {
-                    grid-template-columns: 1fr;
-                    gap: 2rem;
-                }
-                
-                .nav-links {
-                    display: none;
-                }
-                
-                .database-grid {
-                    grid-template-columns: 1fr;
-                }
-                
-                .footer-grid {
-                    grid-template-columns: 1fr;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <!-- Header -->
-        <header class="header">
-            <nav class="nav">
-                <a href="/" class="logo">SensiCup</a>
-                <ul class="nav-links">
-                    <li><a href="/">Home</a></li>
-                    <li><a href="/your-cup">Your Cup</a></li>
-                    <li><a href="/database" class="active">Database</a></li>
-                    <li><a href="/contact">Contact Us</a></li>
-                </ul>
-            </nav>
-        </header>
-
-        <div class="container">
-            <div class="upload-section">
-                <div class="upload-area">
-                    Upload area placeholder
-                </div>
-                <div class="upload-content">
-                    <h2>Upload photos from your SensiCup!</h2>
-                    <p>Currently, datasets that label bacteria in the water to monitor water quality are scarce. By adding your photos, you can contribute to crowdsourcing and creating collections of photos for others to download, which is helpful to make machine learning models better or the science community in general.</p>
-                    
-                    <form class="upload-form" action="/submit-photo" method="POST">
-                        <input type="text" placeholder="Add a description" name="description" required>
-                        <button type="submit" class="submit-btn">Submit Photos</button>
-                    </form>
-                    
-                    <p class="disclaimer">(Please do not upload any private information and we are not liable for any information disclosure.)</p>
-                </div>
-            </div>
-            
-            <div class="database-section">
-                <h2>Database Section</h2>
-                <div class="database-grid">
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <div class="footer-grid">
-                <div class="footer-section">
-                    <h4>SensiCup</h4>
-                </div>
-                <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
-                </div>
-                <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
-                </div>
-            </div>
-        </footer>
-    </body>
-    </html>
-    '''
-
-# Contact page - updated design with working email functionality
-@app.route('/contact')
-def contact():
-    return '''
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Contact Us - SensiCup</title>
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
-            
-            body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background: #f8f9fa;
-                min-height: 100vh;
-                padding-top: 80px;
-            }
-            
-            /* Header */
-            .header {
-                position: fixed;
-                top: 0;
-                width: 100%;
-                background: white;
-                padding: 1rem 2rem;
-                z-index: 1000;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            }
-            
-            .nav {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                max-width: 1200px;
-                margin: 0 auto;
-            }
-            
-            .logo {
-                font-size: 1.5rem;
-                font-weight: bold;
-                color: #333;
-                text-decoration: none;
-            }
-            
-            .nav-links {
-                display: flex;
-                list-style: none;
-                gap: 2rem;
-            }
-            
-            .nav-links a {
-                text-decoration: none;
-                color: #333;
-                font-weight: 500;
-                padding: 0.5rem 1rem;
-                border-radius: 20px;
-                transition: all 0.3s ease;
-            }
-            
-            .nav-links a:hover {
-                background: #333;
-                color: white;
-            }
-            
-            .nav-links a.active {
-                background: #333;
-                color: white;
-            }
-            
-            /* Main Content */
-            .container {
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 3rem 2rem;
-            }
-            
-            .page-title {
-                font-size: 3rem;
-                margin-bottom: 3rem;
-                color: #333;
-            }
-            
-            .contact-section {
-                background: white;
-                border-radius: 15px;
-                padding: 3rem;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 4rem;
-                align-items: start;
-            }
-            
-            .contact-info h3 {
-                color: #666;
-                margin-bottom: 2rem;
-                line-height: 1.6;
-            }
-            
-            .contact-form {
-                display: flex;
-                flex-direction: column;
-                gap: 1.5rem;
-            }
-            
-            .form-group {
-                display: flex;
-                flex-direction: column;
-            }
-            
-            .form-group label {
-                margin-bottom: 0.5rem;
-                color: #333;
-                font-weight: 500;
-            }
-            
-            .form-group input,
-            .form-group textarea {
-                padding: 15px;
-                border: 2px solid #ddd;
-                border-radius: 10px;
-                font-size: 1rem;
-                outline: none;
-                transition: border-color 0.3s ease;
-                font-family: inherit;
-            }
-            
-            .form-group input:focus,
-            .form-group textarea:focus {
-                border-color: #1976d2;
-            }
-            
-            .form-group textarea {
-                min-height: 120px;
-                resize: vertical;
-            }
-            
-            .submit-btn {
-                background: #333;
-                color: white;
-                padding: 15px 30px;
-                border: none;
-                border-radius: 10px;
-                font-size: 1rem;
-                cursor: pointer;
-                transition: background 0.3s ease;
-                margin-top: 1rem;
-            }
-            
-            .submit-btn:hover {
-                background: #555;
-            }
-            
-            .logo-section {
-                background: #999;
-                border-radius: 15px;
-                height: 400px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                font-size: 1.2rem;
-            }
-            
-            /* Footer */
-            .footer {
-                background: #333;
-                color: white;
-                text-align: center;
-                padding: 2rem;
-                margin-top: 5rem;
-            }
-            
-            .footer-grid {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 2rem;
-                max-width: 1200px;
-                margin: 0 auto;
-            }
-            
-            .footer-section h4 {
-                margin-bottom: 1rem;
-            }
-            
-            .footer-section p {
-                color: #ccc;
-                font-size: 0.9rem;
-            }
-            
-            /* Success/Error Messages */
-            .message {
-                padding: 1rem;
-                border-radius: 10px;
-                margin-bottom: 2rem;
-                text-align: center;
-            }
-            
-            .message.success {
-                background: #d4edda;
-                color: #155724;
-                border: 1px solid #c3e6cb;
-            }
-            
-            .message.error {
-                background: #f8d7da;
-                color: #721c24;
-                border: 1px solid #f5c6cb;
-            }
-            
-            /* Responsive Design */
-            @media (max-width: 768px) {
-                .contact-section {
-                    grid-template-columns: 1fr;
-                    gap: 2rem;
-                }
-                
-                .nav-links {
-                    display: none;
-                }
-                
-                .page-title {
-                    font-size: 2rem;
-                }
-                
-                .footer-grid {
-                    grid-template-columns: 1fr;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <!-- Header -->
-        <header class="header">
-            <nav class="nav">
-                <a href="/" class="logo">SensiCup</a>
-                <ul class="nav-links">
-                    <li><a href="/">Home</a></li>
-                    <li><a href="/your-cup">Your Cup</a></li>
-                    <li><a href="/database">Database</a></li>
-                    <li><a href="/contact" class="active">Contact Us</a></li>
-                </ul>
-            </nav>
-        </header>
-
-        <div class="container">
-            <h1 class="page-title">Contact Us</h1>
-            
-            <div class="contact-section">
-                <div class="contact-info">
-                    <h3>Have any questions or comments? We would love to get in contact! Please use the contact us form below for us to receive your message.</h3>
-                    
-                    <form class="contact-form" action="/send-contact" method="POST">
-                        <div class="form-group">
-                            <label for="first_name">First name</label>
-                            <input type="text" id="first_name" name="first_name" placeholder="Jane" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="last_name">Last name</label>
-                            <input type="text" id="last_name" name="last_name" placeholder="Smitherton" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="email">Email address</label>
-                            <input type="email" id="email" name="email" placeholder="email@janesfakedomain.net" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="message">Your message</label>
-                            <textarea id="message" name="message" placeholder="Enter your question or message" required></textarea>
-                        </div>
-                        
-                        <button type="submit" class="submit-btn">Submit</button>
-                    </form>
-                </div>
-                
-                <div class="logo-section">
-                    Insert Logo of SensiCup Here???
-                </div>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <div class="footer-grid">
-                <div class="footer-section">
-                    <h4>SensiCup</h4>
-                </div>
-                <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
-                </div>
-                <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
-                </div>
-            </div>
-        </footer>
-    </body>
-    </html>
-    '''
-
-# Function to send actual email
-def send_email(to_email, subject, body, from_name, from_email):
-    try:
-        # Create message
-        msg = MIMEMultipart()
-        msg['From'] = EMAIL_ADDRESS
-        msg['To'] = to_email
-        msg['Subject'] = subject
-        
-        # Add body to email
-        msg.attach(MIMEText(body, 'plain'))
-        
-        # Gmail SMTP configuration
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-        text = msg.as_string()
-        server.sendmail(EMAIL_ADDRESS, to_email, text)
-        server.quit()
-        
-        return True
-    except Exception as e:
-        print(f"Email sending failed: {e}")
-        return False
-
-# Handle contact form submission with actual email sending
-@app.route('/send-contact', methods=['POST'])
-def send_contact():
-    try:
-        first_name = request.form['first_name']
-        last_name = request.form['last_name']
-        email = request.form['email']
-        message = request.form['message']
-        
-        # Create email content
-        subject = f"Contact Form Submission from {first_name} {last_name}"
-        body = f"""
-New contact form submission from SensiCup website:
-
-Name: {first_name} {last_name}
-Email: {email}
-Message: 
-{message}
-
----
-This message was sent from the SensiCup contact form.
-        """
-        
-        # Send email to your team
-        email_sent = send_email(
-            to_email="sensicupteam@gmail.com",
-            subject=subject,
-            body=body,
-            from_name=f"{first_name} {last_name}",
-            from_email=email
-        )
-        
-        # Store in database
-        conn = sqlite3.connect('water_quality.db')
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS contact_messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                first_name TEXT,
-                last_name TEXT,
-                email TEXT,
-                message TEXT,
-                email_sent BOOLEAN,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        cursor.execute('''
-            INSERT INTO contact_messages (first_name, last_name, email, message, email_sent)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (first_name, last_name, email, message, email_sent))
-        conn.commit()
-        conn.close()
-        
-        # Return success page
-        if email_sent:
-            return '''
-            <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-                <h1 style="color: #4CAF50; margin-bottom: 2rem;">✅ Message Sent Successfully!</h1>
-                <p style="font-size: 1.2rem; margin-bottom: 2rem;">Thank you for contacting us. We've received your message and will get back to you soon!</p>
-                <a href="/" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Return to Home</a>
-            </div>
-            '''
-        else:
-            return '''
-            <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-                <h1 style="color: #ff9800; margin-bottom: 2rem;">⚠️ Message Saved</h1>
-                <p style="font-size: 1.2rem; margin-bottom: 2rem;">Your message has been saved to our database, but email delivery failed. We'll still review your message!</p>
-                <a href="/contact" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Contact</a>
-            </div>
-            '''
-        
-    except Exception as e:
-        return f'''
-        <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-            <h1 style="color: #f44336; margin-bottom: 2rem;">❌ Error Sending Message</h1>
-            <p style="font-size: 1.2rem; margin-bottom: 2rem;">Sorry, there was an error processing your message. Please try again.</p>
-            <p style="font-size: 0.9rem; color: #666; margin-bottom: 2rem;">Error: {str(e)}</p>
-            <a href="/contact" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Contact</a>
-        </div>
-        '''
-
-# Handle photo submission
-@app.route('/submit-photo', methods=['POST'])
-def submit_photo():
-    try:
-        description = request.form['description']
-        cup_id = request.form.get('cup_id', 'unknown')
-        
-        # Store in database
-        conn = sqlite3.connect('water_quality.db')
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO user_photos (cup_id, description)
-            VALUES (?, ?)
-        ''', (cup_id, description))
-        conn.commit()
-        conn.close()
-        
-        return '''
-        <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-            <h1 style="color: #4CAF50; margin-bottom: 2rem;">✅ Photo Submitted Successfully!</h1>
-            <p style="font-size: 1.2rem; margin-bottom: 2rem;">Thank you for contributing to our database!</p>
-            <a href="/database" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Database</a>
-        </div>
-        '''
-        
-    except Exception as e:
-        return '''
-        <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-            <h1 style="color: #f44336; margin-bottom: 2rem;">❌ Error Submitting Photo</h1>
-            <p style="font-size: 1.2rem; margin-bottom: 2rem;">Sorry, there was an error. Please try again.</p>
-            <a href="/database" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Database</a>
-        </div>
-        '''
 
 # API endpoint for Raspberry Pi to send data
 @app.route('/api/sensor-data', methods=['POST'])
@@ -1691,7 +452,7 @@ def receive_sensor_data():
         socketio.emit('sensor_update', data)
         
         return jsonify({'status': 'success', 'message': 'Data received'})
-    
+        
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
@@ -1704,10 +465,10 @@ def handle_latest_data(data):
     conn = sqlite3.connect('water_quality.db')
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT ph, tds, salinity, cleanliness_score
-        FROM sensor_readings
-        WHERE cup_id = ?
-        ORDER BY timestamp DESC
+        SELECT ph, tds, salinity, cleanliness_score 
+        FROM sensor_readings 
+        WHERE cup_id = ? 
+        ORDER BY timestamp DESC 
         LIMIT 1
     ''', (cup_id,))
     
