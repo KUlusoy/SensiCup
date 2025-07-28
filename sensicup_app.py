@@ -412,13 +412,13 @@ def home():
 
         <!-- Footer -->
         <footer class="footer">
-            <p>&copy; 2024 SensiCup. All rights reserved.</p>
+            <p>&copy; 2025 SensiCup. All rights reserved.</p>
         </footer>
     </body>
     </html>
     '''
 
-# Your Cup page - updated to show content only after entering cup code
+# Your Cup page - updated with info popups
 @app.route('/your-cup')
 def your_cup():
     return '''
@@ -628,6 +628,25 @@ def your_cup():
                 border-radius: 10px;
                 text-align: left;
                 font-weight: 500;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                position: relative;
+            }
+            
+            .sensor-card:hover {
+                background: #1565c0;
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(25, 118, 210, 0.3);
+            }
+            
+            .sensor-card::after {
+                content: '📊 Click for more info';
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 0.8rem;
+                opacity: 0.7;
             }
             
             /* Live Feed Section */
@@ -686,6 +705,129 @@ def your_cup():
                 justify-content: center;
             }
             
+            /* Modal Styles */
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 2000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.5);
+                animation: modalFadeIn 0.3s ease;
+            }
+            
+            @keyframes modalFadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            .modal-content {
+                background-color: #fefefe;
+                margin: 5% auto;
+                padding: 0;
+                border-radius: 15px;
+                width: 90%;
+                max-width: 800px;
+                max-height: 80vh;
+                overflow-y: auto;
+                animation: modalSlideIn 0.3s ease;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            }
+            
+            @keyframes modalSlideIn {
+                from { transform: translateY(-50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            
+            .modal-header {
+                background: #1976d2;
+                color: white;
+                padding: 2rem;
+                border-radius: 15px 15px 0 0;
+            }
+            
+            .modal-title {
+                font-size: 2rem;
+                margin: 0;
+            }
+            
+            .modal-body {
+                padding: 2rem;
+                line-height: 1.6;
+            }
+            
+            .modal-body h3 {
+                color: #333;
+                margin-bottom: 1rem;
+            }
+            
+            .modal-body p {
+                color: #666;
+                margin-bottom: 1rem;
+            }
+            
+            .info-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 1rem 0;
+                background: white;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            }
+            
+            .info-table th,
+            .info-table td {
+                padding: 1rem;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+            
+            .info-table th {
+                background: #1976d2;
+                color: white;
+                font-weight: 600;
+            }
+            
+            .info-table tr:last-child td {
+                border-bottom: none;
+            }
+            
+            .close {
+                position: absolute;
+                right: 20px;
+                top: 20px;
+                color: white;
+                font-size: 28px;
+                font-weight: bold;
+                cursor: pointer;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                background: rgba(255,255,255,0.2);
+                transition: background 0.3s ease;
+            }
+            
+            .close:hover {
+                background: rgba(255,255,255,0.3);
+            }
+            
+            .citation {
+                font-size: 0.9rem;
+                color: #888;
+                font-style: italic;
+                margin-top: 1rem;
+                padding: 1rem;
+                background: #f9f9f9;
+                border-radius: 8px;
+                border-left: 4px solid #1976d2;
+            }
+            
             /* Footer */
             .footer {
                 background: #333;
@@ -741,6 +883,15 @@ def your_cup():
                 .footer-grid {
                     grid-template-columns: 1fr;
                 }
+                
+                .modal-content {
+                    width: 95%;
+                    margin: 10% auto;
+                }
+                
+                .sensor-card::after {
+                    display: none;
+                }
             }
         </style>
     </head>
@@ -780,13 +931,12 @@ def your_cup():
                     <div class="diagram-grid">
                         <div class="cup-diagram">
                             <div style="background: #f0f0f0; min-height: 400px; width: 100%; display: flex; align-items: center; justify-content: center; border-radius: 10px;">
-                                Insert SensiCup Diagram Here
-                            </div>
+                                <img src="/static/SensiCup_Final_Sketch.png" alt="SensiCup Sketch" ... />                            </div>
                         </div>
                         <div class="sensor-info">
-                            <div class="sensor-card">pH Level: <span id="ph-display">7.2</span></div>
-                            <div class="sensor-card">TDS Level: <span id="tds-display">245 ppm</span></div>
-                            <div class="sensor-card">Salinity Level: <span id="salinity-display">0.02%</span></div>
+                            <div class="sensor-card" onclick="openModal('ph-modal')">pH Level: <span id="ph-display">7.2</span></div>
+                            <div class="sensor-card" onclick="openModal('tds-modal')">TDS Level: <span id="tds-display">245 ppm</span></div>
+                            <div class="sensor-card" onclick="openModal('salinity-modal')">Salinity Level: <span id="salinity-display">0.02%</span></div>
                         </div>
                     </div>
                 </div>
@@ -806,6 +956,102 @@ def your_cup():
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- pH Modal -->
+        <div id="ph-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="close" onclick="closeModal('ph-modal')">&times;</span>
+                    <h2 class="modal-title">What Does My Water's pH Level Mean?</h2>
+                </div>
+                <div class="modal-body">
+                    <p>In simple terms, pH level in water indicates how acidic or basic (also called alkaline) the water is. It is a scale from 0 to 14, where 7 is neutral. A pH below 7 is acidic, and a pH above 7 is basic. While a pH of around 6.5 to 8.5 is often considered safe for drinking water, extreme pH levels can affect taste and potentially cause corrosion or scaling in pipes. Please check the chart given to see if the pH level is outside the range of safe drinking water for reference.</p>
+                    
+                    <table class="info-table">
+                        <thead>
+                            <tr>
+                                <th>pH Range</th>
+                                <th>Water Quality</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>0 - 6.4</td><td>Acidic (Poor)</td></tr>
+                            <tr><td>6.5 - 8.5</td><td>Safe (Good)</td></tr>
+                            <tr><td>8.6 - 14</td><td>Basic (Poor)</td></tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="citation">
+                        Vanstone, Emma. "What Is the pH Scale?" Science Experiments for Kids, 16 Oct. 2023, www.science-sparks.com/what-is-the-ph-scale.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TDS Modal -->
+        <div id="tds-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="close" onclick="closeModal('tds-modal')">&times;</span>
+                    <h2 class="modal-title">What Does My Water's TDS Level Mean?</h2>
+                </div>
+                <div class="modal-body">
+                    <p>TDS (Total Dissolved Solids) will help measure your water quality by seeing the total amount of dissolved materials you can drink and materials you cannot such as salts, minerals, metals, etc. If your TDS level is under 300 milligrams per liter, then your water quality is excellent and most of the dissolved materials you have in your water is consumable! Please check the graph to see if the TDS level is your water is above 300 milligrams per liter for reference.</p>
+                    
+                    <table class="info-table">
+                        <thead>
+                            <tr>
+                                <th>Level of TDS (milligrams per litre)</th>
+                                <th>Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Less than 300</td><td>Excellent</td></tr>
+                            <tr><td>300 - 600</td><td>Good</td></tr>
+                            <tr><td>600 - 900</td><td>Fair</td></tr>
+                            <tr><td>900 - 1,200</td><td>Poor</td></tr>
+                            <tr><td>Above 1,200</td><td>Unacceptable</td></tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="citation">
+                        "Taste of Water with Different TDS Concentrations," https://cdn.who.int/media/docs/default-source/wash-documents/wash-chemicals/tds.pdf?sfvrsn=3e6d651e_4
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Salinity Modal -->
+        <div id="salinity-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="close" onclick="closeModal('salinity-modal')">&times;</span>
+                    <h2 class="modal-title">What Does My Water's Salinity Level Mean?</h2>
+                </div>
+                <div class="modal-body">
+                    <p>Salinity levels in your water measure how much salt there is in your water. This will help you understand how much salinity can influence the drinking water you have as it strongly contributes to the content of the water you drink. If the salinity level in your water is 600 milligrams per liter or less, then your water quality is excellent with low salinity and you can drink it! For the higher salinity levels, the least likely it is healthy for you to drink it. Please check the chart given to see if the salinity level is higher than 600 milligrams per liter for reference.</p>
+                    
+                    <table class="info-table">
+                        <thead>
+                            <tr>
+                                <th>Salinity (mg/L)</th>
+                                <th>Quality</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>0 - 600</td><td>Good</td></tr>
+                            <tr><td>600 - 900</td><td>Fair</td></tr>
+                            <tr><td>900 - 1,200</td><td>Poor</td></tr>
+                            <tr><td>> 1,200</td><td>Unacceptable (unpalatable)</td></tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="citation">
+                        "River Water Salinity Impact on Drinking Water Treatment Plant Performance Using Artificial Neural Network." Journal of Engineering, vol. 25, no. 8, July 2019, pp. 149–59. https://doi.org/10.31026/j.eng.2019.08.10.
                     </div>
                 </div>
             </div>
@@ -853,7 +1099,7 @@ def your_cup():
                     });
                 }, 100);
                 
-                // Update status based on cup code (you can customize this logic)
+                // Update status based on cup code
                 updateStatusBasedOnCupCode(cupCode);
             }
             
@@ -894,10 +1140,43 @@ def your_cup():
                 document.getElementById('cleanliness-display').textContent = cleanliness;
             }
             
+            // Modal functions
+            function openModal(modalId) {
+                document.getElementById(modalId).style.display = 'block';
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            }
+            
+            function closeModal(modalId) {
+                document.getElementById(modalId).style.display = 'none';
+                document.body.style.overflow = 'auto'; // Restore scrolling
+            }
+            
+            // Close modal when clicking outside of it
+            window.onclick = function(event) {
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(modal => {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                        document.body.style.overflow = 'auto';
+                    }
+                });
+            }
+            
             // Allow Enter key to connect
             document.getElementById('cup_code').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     connectToCup();
+                }
+            });
+            
+            // Close modal with Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const openModal = document.querySelector('.modal[style*="block"]');
+                    if (openModal) {
+                        openModal.style.display = 'none';
+                        document.body.style.overflow = 'auto';
+                    }
                 }
             });
         </script>
@@ -1764,5 +2043,5 @@ def handle_latest_data(data):
 if __name__ == '__main__':
     init_db()
     import os
-    port = int(os.environ.get('PORT', 5002))
+    port = int(os.environ.get('PORT', 5003))
     socketio.run(app, debug=False, host='0.0.0.0', port=port)
