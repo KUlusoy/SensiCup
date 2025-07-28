@@ -1541,9 +1541,8 @@ def contact():
                     </form>
                 </div>
                 
-                <div class="logo-section">
-                    Insert Logo of SensiCup Here???
-                </div>
+            <div class="logo-section">
+                <img src="/static/SensiCup_Logo.jpg" alt="SensiCup Logo" style="max-width: 80%; max-height: 80%; border-radius: 15px;" />            </div>
             </div>
         </div>
 
