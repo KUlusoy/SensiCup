@@ -15,7 +15,7 @@ socketio = SocketIO(app)
 
 # Email configuration
 EMAIL_ADDRESS = "sensicupteam@gmail.com"
-EMAIL_PASSWORD = "B@ngB@ngMonk3y98687"  # Use app password, not regular password
+EMAIL_PASSWORD = "rbie ebnn phut acnd"  # Use app password, not regular password
 
 # Initialize database
 def init_db():
@@ -1542,7 +1542,7 @@ def contact():
                 </div>
                 
                 <div class="logo-section">
-                    <img src="https://drive.google.com/file/d/1ii-vM-FDnLsPqt5-9NjIBvQ9VMaoMlrg/view?usp=sharing">
+                    Insert Logo of SensiCup Here???
                 </div>
             </div>
         </div>
@@ -1670,11 +1670,10 @@ This message was sent from the SensiCup contact form.
     except Exception as e:
         return f'''
         <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-            <h1 style="color: #f44336; margin-bottom: 2rem;">❌ Error Sending Message</h1>
-            <p style="font-size: 1.2rem; margin-bottom: 2rem;">Sorry, there was an error processing your message. Please try again.</p>
-            <p style="font-size: 0.9rem; color: #666; margin-bottom: 2rem;">Error: {str(e)}</p>
-            <a href="/contact" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Contact</a>
-        </div>
+                <h1 style="color: #4CAF50; margin-bottom: 2rem;">✅ Message Sent Successfully!</h1>
+                <p style="font-size: 1.2rem; margin-bottom: 2rem;">Thank you for contacting us. We've received your message and will get back to you soon!</p>
+                <a href="/" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Return to Home</a>
+            </div>
         '''
 
 # Handle photo submission
@@ -1705,10 +1704,10 @@ def submit_photo():
     except Exception as e:
         return '''
         <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-            <h1 style="color: #f44336; margin-bottom: 2rem;">❌ Error Submitting Photo</h1>
-            <p style="font-size: 1.2rem; margin-bottom: 2rem;">Sorry, there was an error. Please try again.</p>
-            <a href="/database" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Database</a>
-        </div>
+                <h1 style="color: #4CAF50; margin-bottom: 2rem;">✅ Message Sent Successfully!</h1>
+                <p style="font-size: 1.2rem; margin-bottom: 2rem;">Thank you for contacting us. We've received your message and will get back to you soon!</p>
+                <a href="/" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Return to Home</a>
+            </div>
         '''
 
 # API endpoint for Raspberry Pi to send data
@@ -1766,5 +1765,5 @@ def handle_latest_data(data):
 if __name__ == '__main__':
     init_db()
     import os
-    port = int(os.environ.get('PORT', 5001))
+    port = int(os.environ.get('PORT', 5002))
     socketio.run(app, debug=False, host='0.0.0.0', port=port)
