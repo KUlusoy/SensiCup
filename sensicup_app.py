@@ -854,6 +854,18 @@ def your_cup():
                 font-size: 0.9rem;
             }
             
+            .footer-section h5 a {
+                color: #BEBEBE;
+                text-decoration: none;
+                font-weight: thin;
+            }
+            
+            .footer-section h5 a:hover {
+                text-decoration: underline;
+                color: #B5D5F4;
+                font-weight: thin;
+            }
+            
             /* Responsive Design */
             @media (max-width: 768px) {
                 .diagram-grid,
@@ -1062,22 +1074,17 @@ def your_cup():
             <div class="footer-grid">
                 <div class="footer-section">
                     <h4>SensiCup</h4>
+                    <h5><a href="/">Home</a></h5>
+                    <h5><a href="/contact">Contact Us</a></h5>
                 </div>
                 <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
-                </div>
-                <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
+                    <h4>Information</h4>
+                    <h5><a href="/your-cup">Your Cup</a></h5>
+                    <h5><a href="/database">Database</a></h5>
                 </div>
             </div>
         </footer>
-        
+
         <script>
             function connectToCup() {
                 const cupCode = document.getElementById('cup_code').value.trim();
@@ -1417,6 +1424,18 @@ def database():
                 font-size: 0.9rem;
             }
             
+            .footer-section h5 a {
+                color: #BEBEBE;
+                text-decoration: none;
+                font-weight: thin;
+            }
+            
+            .footer-section h5 a:hover {
+                text-decoration: underline;
+                color: #B5D5F4;
+                font-weight: thin;
+            }
+            
             /* Responsive Design */
             @media (max-width: 768px) {
                 .upload-section {
@@ -1518,18 +1537,13 @@ def database():
             <div class="footer-grid">
                 <div class="footer-section">
                     <h4>SensiCup</h4>
+                    <h5><a href="/">Home</a></h5>
+                    <h5><a href="/contact">Contact Us</a></h5>
                 </div>
                 <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
-                </div>
-                <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
+                    <h4>Information</h4>
+                    <h5><a href="/your-cup">Your Cup</a></h5>
+                    <h5><a href="/database">Database</a></h5>
                 </div>
             </div>
         </footer>
@@ -1733,6 +1747,18 @@ def contact():
                 font-size: 0.9rem;
             }
             
+            .footer-section h5 a {
+                color: #BEBEBE;
+                text-decoration: none;
+                font-weight: thin;
+            }
+            
+            .footer-section h5 a:hover {
+                text-decoration: underline;
+                color: #B5D5F4;
+                font-weight: thin;
+            }
+            
             /* Success/Error Messages */
             .message {
                 padding: 1rem;
@@ -1830,18 +1856,13 @@ def contact():
             <div class="footer-grid">
                 <div class="footer-section">
                     <h4>SensiCup</h4>
+                    <h5><a href="/">Home</a></h5>
+                    <h5><a href="/contact">Contact Us</a></h5>
                 </div>
                 <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
-                </div>
-                <div class="footer-section">
-                    <h4>Topic</h4>
-                    <p>Page</p>
-                    <p>Page</p>
-                    <p>Page</p>
+                    <h4>Information</h4>
+                    <h5><a href="/your-cup">Your Cup</a></h5>
+                    <h5><a href="/database">Database</a></h5>
                 </div>
             </div>
         </footer>
@@ -2043,5 +2064,5 @@ def handle_latest_data(data):
 if __name__ == '__main__':
     init_db()
     import os
-    port = int(os.environ.get('PORT', 5003))
+    port = int(os.environ.get('PORT', 5002))
     socketio.run(app, debug=False, host='0.0.0.0', port=port)
