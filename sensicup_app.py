@@ -8,14 +8,62 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import cv2 # Import OpenCV
+import paho.mqtt.client as mqtt
+import threading
+
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 socketio = SocketIO(app)
 
+# MQTT Configuration
+MQTT_BROKER = "localhost"
+MQTT_PORT = 1883
+MQTT_TOPIC = "sensicup/sensors/#"  # Wildcard to listen to all cups
+
 # Email configuration
 EMAIL_ADDRESS = "sensicupteam@gmail.com"
 EMAIL_PASSWORD = "rbie ebnn phut acnd"  # Use app password, not regular password
+
+
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("✓ Connected to MQTT broker")
+        client.subscribe(MQTT_TOPIC)
+    else:
+        print("✗ Failed to connect, return code", rc)
+
+def on_message(client, userdata, msg):
+    try:
+        topic_parts = msg.topic.split('/')
+        cup_id = topic_parts[-1]
+        data = json.loads(msg.payload.decode())
+        data['cup_id'] = cup_id
+
+        # Save to DB
+        conn = sqlite3.connect('water_quality.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO sensor_readings (cup_id, ph, tds, salinity, cleanliness_score, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (cup_id, data['ph'], data['tds'], data['salinity'], data['cleanliness_score'], datetime.fromtimestamp(data['timestamp'])))
+        conn.commit()
+        conn.close()
+
+        # Emit to clients via SocketIO
+        socketio.emit('sensor_update', data)
+        print(f"📡 Data stored & emitted for {cup_id}")
+    except Exception as e:
+        print(f"❌ Error processing MQTT message: {e}")
+
+def start_mqtt_listener():
+    mqtt_client = mqtt.Client()
+    mqtt_client.on_connect = on_connect
+    mqtt_client.on_message = on_message
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    mqtt_client.loop_forever()
 
 # Initialize database
 def init_db():
@@ -943,12 +991,14 @@ def your_cup():
                     <div class="diagram-grid">
                         <div class="cup-diagram">
                             <div style="background: #f0f0f0; min-height: 400px; width: 100%; display: flex; align-items: center; justify-content: center; border-radius: 10px;">
-                                <img src="/static/SensiCup_Final_Sketch.png" alt="SensiCup Sketch" ... />                            </div>
+                                <img src="/static/SensiCup_Final_Sketch.png" alt="SensiCup Sketch" style="max-width:100%; height:auto; border-radius:10px;" />
+
+                            </div>
                         </div>
                         <div class="sensor-info">
-                            <div class="sensor-card" onclick="openModal('ph-modal')">pH Level: <span id="ph-display">7.2</span></div>
-                            <div class="sensor-card" onclick="openModal('tds-modal')">TDS Level: <span id="tds-display">245 ppm</span></div>
-                            <div class="sensor-card" onclick="openModal('salinity-modal')">Salinity Level: <span id="salinity-display">0.02%</span></div>
+                            <div class="sensor-card" onclick="openModal('ph-modal')">pH Level: <span id="ph-display">...</span></div>
+                            <div class="sensor-card" onclick="openModal('tds-modal')">TDS Level: <span id="tds-display">... ppm</span></div>
+                            <div class="sensor-card" onclick="openModal('salinity-modal')">Salinity Level: <span id="salinity-display">...%</span></div>
                         </div>
                     </div>
                 </div>
@@ -964,7 +1014,7 @@ def your_cup():
                             <div class="particles-display">
                                 <div>
                                     <p>✅ No harmful particles detected</p>
-                                    <p>🔬 Cleanliness Score: <span id="cleanliness-display">85</span>/100</p>
+                                    <p>🔬 Cleanliness Score: <span id="cleanliness-display">...</span>/100</p>
                                 </div>
                             </div>
                         </div>
@@ -1085,68 +1135,55 @@ def your_cup():
             </div>
         </footer>
 
-        <script>
-            function connectToCup() {
-                const cupCode = document.getElementById('cup_code').value.trim();
-                
-                if (!cupCode) {
-                    alert('Please enter a cup code');
-                    return;
-                }
-                
-                // Show the hidden content with animation
-                const hiddenContent = document.getElementById('hidden-content');
-                hiddenContent.style.display = 'block';
-                
-                // Scroll to the revealed content
-                setTimeout(() => {
-                    hiddenContent.scrollIntoView({ 
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }, 100);
-                
-                // Update status based on cup code
-                updateStatusBasedOnCupCode(cupCode);
-            }
+   
+           
+        <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+<script>
+    const socket = io();
+
+    function connectToCup() {
+        const cupId = document.getElementById('cup_code').value.trim().toUpperCase();
+        if (!cupId) {
+            alert('Please enter a cup code');
+            return;
+        }
+
+        const hiddenContent = document.getElementById('hidden-content');
+        hiddenContent.style.display = 'block';
+
+        setTimeout(() => {
+            hiddenContent.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }, 100);
+
+        socket.emit('get_latest_data', { cup_id: cupId });
+
+        socket.on('sensor_update', data => {
+            if (data.cup_id !== cupId) return;
+
+            document.getElementById('ph-display').textContent = data.ph;
+            document.getElementById('tds-display').textContent = data.tds + " ppm";
+            document.getElementById('salinity-display').textContent = data.salinity + "%";
+            document.getElementById('cleanliness-display').textContent = data.cleanliness_score;
+
+            document.getElementById('water-status').textContent = determineStatus(data);
+        });
+
+        function determineStatus(data) {
+            if (data.ph >= 6.5 && data.ph <= 8.5 && data.tds <= 300 && data.salinity < 0.06)
+                return "Excellent";
+            else if (data.tds <= 600)
+                return "Good";
+            else
+                return "Poor";
+        }
+    }
+</script>
+
             
-            function updateStatusBasedOnCupCode(cupCode) {
-                // Hardcoded values for demo - you can customize this
-                let status = 'Good';
-                let ph = '7.2';
-                let tds = '245 ppm';
-                let salinity = '0.02%';
-                let cleanliness = '85';
-                
-                // Example: different values for different cup codes
-                if (cupCode.toUpperCase() === 'CUP123') {
-                    status = 'Excellent';
-                    ph = '7.4';
-                    tds = '220 ppm';
-                    salinity = '0.01%';
-                    cleanliness = '92';
-                } else if (cupCode.toUpperCase() === 'CUP456') {
-                    status = 'Fair';
-                    ph = '6.8';
-                    tds = '350 ppm';
-                    salinity = '0.05%';
-                    cleanliness = '68';
-                } else if (cupCode.toUpperCase() === 'CUP789') {
-                    status = 'Poor';
-                    ph = '5.9';
-                    tds = '450 ppm';
-                    salinity = '0.08%';
-                    cleanliness = '42';
-                }
-                
-                // Update the display
-                document.getElementById('water-status').textContent = status;
-                document.getElementById('ph-display').textContent = ph;
-                document.getElementById('tds-display').textContent = tds;
-                document.getElementById('salinity-display').textContent = salinity;
-                document.getElementById('cleanliness-display').textContent = cleanliness;
-            }
-            
+  <script>          
             // Modal functions
             function openModal(modalId) {
                 document.getElementById(modalId).style.display = 'block';
@@ -2038,7 +2075,6 @@ def receive_sensor_data():
 def handle_latest_data(data):
     cup_id = data['cup_id']
     
-    # Get latest reading from database
     conn = sqlite3.connect('water_quality.db')
     cursor = conn.cursor()
     cursor.execute('''
@@ -2061,8 +2097,14 @@ def handle_latest_data(data):
             'cleanliness_score': result[3]
         })
 
+
 if __name__ == '__main__':
     init_db()
-    import os
-    port = int(os.environ.get('PORT', 5002))
-    socketio.run(app, debug=False, host='0.0.0.0', port=port)
+
+    # Start MQTT listener thread
+    mqtt_thread = threading.Thread(target=start_mqtt_listener)
+    mqtt_thread.daemon = True
+    mqtt_thread.start()
+
+    port = int(os.environ.get('PORT', 5003))
+    socketio.run(app, debug=True, host='0.0.0.0', port=port)
