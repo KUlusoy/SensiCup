@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Database - SensiCup</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: #f8f9fa;
+                min-height: 100vh;
+                padding-top: 80px;
+            }
+            
+            /* Header */
+            .header {
+                position: fixed;
+                top: 0;
+                width: 100%;
+                background: white;
+                padding: 1rem 2rem;
+                z-index: 1000;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+            
+            .nav {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+            
+            .logo {
+                font-size: 1.5rem;
+                font-weight: bold;
+                color: #333;
+                text-decoration: none;
+            }
+            
+            .nav-links {
+                display: flex;
+                list-style: none;
+                gap: 2rem;
+            }
+            
+            .nav-links a {
+                text-decoration: none;
+                color: #333;
+                font-weight: 500;
+                padding: 0.5rem 1rem;
+                border-radius: 20px;
+                transition: all 0.3s ease;
+            }
+            
+            .nav-links a:hover {
+                background: #333;
+                color: white;
+            }
+            
+            .nav-links a.active {
+                background: #333;
+                color: white;
+            }
+            
+            /* Main Content */
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 3rem 2rem;
+            }
+            
+            .upload-section {
+                background: white;
+                border-radius: 15px;
+                padding: 3rem;
+                margin-bottom: 3rem;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 3rem;
+                align-items: center;
+            }
+            
+            .upload-content h2 {
+                font-size: 2rem;
+                margin-bottom: 1rem;
+                color: #333;
+            }
+            
+            .upload-content p {
+                color: #666;
+                line-height: 1.6;
+                margin-bottom: 2rem;
+            }
+            
+            .upload-form {
+                margin-top: 2rem;
+            }
+            
+            .upload-form input[type="text"] {
+                width: 100%;
+                padding: 15px;
+                border: 2px solid #ddd;
+                border-radius: 10px;
+                font-size: 1rem;
+                margin-bottom: 1rem;
+                outline: none;
+                transition: border-color 0.3s ease;
+            }
+            
+            .upload-form input[type="text"]:focus {
+                border-color: #1976d2;
+            }
+            
+            .submit-btn {
+                width: 100%;
+                background: #333;
+                color: white;
+                padding: 15px;
+                border: none;
+                border-radius: 10px;
+                font-size: 1rem;
+                cursor: pointer;
+                transition: background 0.3s ease;
+            }
+            
+            .submit-btn:hover {
+                background: #555;
+            }
+            
+            /* Database Section */
+            .database-section {
+                margin-top: 4rem;
+            }
+            
+            .database-section h2 {
+                font-size: 2rem;
+                margin-bottom: 2rem;
+                color: #333;
+            }
+            
+            .database-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 2rem;
+            }
+            
+            .database-card {
+                background: white;
+                border-radius: 15px;
+                padding: 2rem;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                text-align: center;
+            }
+            
+            .database-image {
+                background: #f0f0f0;
+                height: 200px;
+                border-radius: 10px;
+                margin-bottom: 1rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #666;
+            }
+            
+            .database-card h3 {
+                margin-bottom: 0.5rem;
+                color: #333;
+            }
+            
+            .database-card p {
+                color: #666;
+                font-size: 0.9rem;
+            }
+            
+            /* Footer */
+            .footer {
+                background: #333;
+                color: white;
+                text-align: center;
+                padding: 2rem;
+                margin-top: 5rem;
+            }
+            
+            .footer-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 2rem;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+            
+            .footer-section h4 {
+                margin-bottom: 1rem;
+            }
+            
+            .footer-section p {
+                color: #ccc;
+                font-size: 0.9rem;
+            }
+            
+            .footer-section h5 a {
+                color: #BEBEBE;
+                text-decoration: none;
+                font-weight: thin;
+            }
+            
+            .footer-section h5 a:hover {
+                text-decoration: underline;
+                color: #B5D5F4;
+                font-weight: thin;
+            }
+            
+            /* Responsive Design */
+            @media (max-width: 768px) {
+                .upload-section {
+                    grid-template-columns: 1fr;
+                    gap: 2rem;
+                }
+                
+                .nav-links {
+                    display: none;
+                }
+                
+                .database-grid {
+                    grid-template-columns: 1fr;
+                }
+                
+                .footer-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Header -->
+        <header class="header">
+            <nav class="nav">
+                <a href="/" class="logo">SensiCup</a>
+                <ul class="nav-links">
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/your-cup">Your Cup</a></li>
+                    <li><a href="/database" class="active">Database</a></li>
+                    <li><a href="/contact">Contact Us</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <div class="container">
+            <div class="upload-section">
+                <div class="upload-content">
+                    <h2>Upload photos from your SensiCup!</h2>
+                    <p>Currently, datasets that label bacteria in the water to monitor water quality are scarce. By adding your photos, you can contribute to crowdsourcing and creating collections of photos for others to download, which is helpful to make machine learning models better or the science community in general.</p>
+                    
+                    <form class="upload-form" action="/submit-photo" method="POST">
+                        <input type="text" placeholder="Add a description" name="description" required>
+                        <button type="submit" class="submit-btn">Submit Photos</button>
+                    </form>
+                    
+                </div>
+            </div>
+            
+            <div class="database-section">
+                <h2>Database Section</h2>
+                <div class="database-grid">
+                    <div class="database-card">
+                        <div class="database-image">Database Image</div>
+                        <h3>____'s Database</h3>
+                        <p>Small Description</p>
+                        <p><strong>(Anything else)</strong></p>
+                    </div>
+                    <div class="database-card">
+                        <div class="database-image">Database Image</div>
+                        <h3>____'s Database</h3>
+                        <p>Small Description</p>
+                        <p><strong>(Anything else)</strong></p>
+                    </div>
+                    <div class="database-card">
+                        <div class="database-image">Database Image</div>
+                        <h3>____'s Database</h3>
+                        <p>Small Description</p>
+                        <p><strong>(Anything else)</strong></p>
+                    </div>
+                    <div class="database-card">
+                        <div class="database-image">Database Image</div>
+                        <h3>____'s Database</h3>
+                        <p>Small Description</p>
+                        <p><strong>(Anything else)</strong></p>
+                    </div>
+                    <div class="database-card">
+                        <div class="database-image">Database Image</div>
+                        <h3>____'s Database</h3>
+                        <p>Small Description</p>
+                        <p><strong>(Anything else)</strong></p>
+                    </div>
+                    <div class="database-card">
+                        <div class="database-image">Database Image</div>
+                        <h3>____'s Database</h3>
+                        <p>Small Description</p>
+                        <p><strong>(Anything else)</strong></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-grid">
+                <div class="footer-section">
+                    <h4>SensiCup</h4>
+                    <h5><a href="/">Home</a></h5>
+                    <h5><a href="/contact">Contact Us</a></h5>
+                </div>
+                <div class="footer-section">
+                    <h4>Information</h4>
+                    <h5><a href="/your-cup">Your Cup</a></h5>
+                    <h5><a href="/database">Database</a></h5>
+                </div>
+            </div>
+        </footer>
+    </body>
+    </html>
+    '''
+
+    # Contact page - updated design with working email functionality
+    @app.route('/contact')
+    def contact():
+    return '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Contact Us - SensiCup</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: #f8f9fa;
+                min-height: 100vh;
+                padding-top: 80px;
+            }
+            
+            /* Header */
+            .header {
+                position: fixed;
+                top: 0;
+                width: 100%;
+                background: white;
+                padding: 1rem 2rem;
+                z-index: 1000;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+            
+            .nav {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+            
+            .logo {
+                font-size: 1.5rem;
+                font-weight: bold;
+                color: #333;
+                text-decoration: none;
+            }
+            
+            .nav-links {
+                display: flex;
+                list-style: none;
+                gap: 2rem;
+            }
+            
+            .nav-links a {
+                text-decoration: none;
+                color: #333;
+                font-weight: 500;
+                padding: 0.5rem 1rem;
+                border-radius: 20px;
+                transition: all 0.3s ease;
+            }
+            
+            .nav-links a:hover {
+                background: #333;
+                color: white;
+            }
+            
+            .nav-links a.active {
+                background: #333;
+                color: white;
+            }
+            
+            /* Main Content */
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 3rem 2rem;
+            }
+            
+            .page-title {
+                font-size: 3rem;
+                margin-bottom: 3rem;
+                color: #333;
+            }
+            
+            .contact-section {
+                background: white;
+                border-radius: 15px;
+                padding: 3rem;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 4rem;
+                align-items: start;
+            }
+            
+            .contact-info h3 {
+                color: #666;
+                margin-bottom: 2rem;
+                line-height: 1.6;
+            }
+            
+            .contact-form {
+                display: flex;
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            
+            .form-group {
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .form-group label {
+                margin-bottom: 0.5rem;
+                color: #333;
+                font-weight: 500;
+            }
+            
+            .form-group input,
+            .form-group textarea {
+                padding: 15px;
+                border: 2px solid #ddd;
+                border-radius: 10px;
+                font-size: 1rem;
+                outline: none;
+                transition: border-color 0.3s ease;
+                font-family: inherit;
+            }
+            
+            .form-group input:focus,
+            .form-group textarea:focus {
+                border-color: #1976d2;
+            }
+            
+            .form-group textarea {
+                min-height: 120px;
+                resize: vertical;
+            }
+            
+            .submit-btn {
+                background: #333;
+                color: white;
+                padding: 15px 30px;
+                border: none;
+                border-radius: 10px;
+                font-size: 1rem;
+                cursor: pointer;
+                transition: background 0.3s ease;
+                margin-top: 1rem;
+            }
+            
+            .submit-btn:hover {
+                background: #555;
+            }
+            
+            .logo-section {
+                background: #999;
+                border-radius: 15px;
+                height: 400px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 1.2rem;
+            }
+            
+            /* Footer */
+            .footer {
+                background: #333;
+                color: white;
+                text-align: center;
+                padding: 2rem;
+                margin-top: 5rem;
+            }
+            
+            .footer-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 2rem;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+            
+            .footer-section h4 {
+                margin-bottom: 1rem;
+            }
+            
+            .footer-section p {
+                color: #ccc;
+                font-size: 0.9rem;
+            }
+            
+            .footer-section h5 a {
+                color: #BEBEBE;
+                text-decoration: none;
+                font-weight: thin;
+            }
+            
+            .footer-section h5 a:hover {
+                text-decoration: underline;
+                color: #B5D5F4;
+                font-weight: thin;
+            }
+            
+            /* Success/Error Messages */
+            .message {
+                padding: 1rem;
+                border-radius: 10px;
+                margin-bottom: 2rem;
+                text-align: center;
+            }
+            
+            .message.success {
+                background: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }
+            
+            .message.error {
+                background: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }
+            
+            /* Responsive Design */
+            @media (max-width: 768px) {
+                .contact-section {
+                    grid-template-columns: 1fr;
+                    gap: 2rem;
+                }
+                
+                .nav-links {
+                    display: none;
+                }
+                
+                .page-title {
+                    font-size: 2rem;
+                }
+                
+                .footer-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Header -->
+        <header class="header">
+            <nav class="nav">
+                <a href="/" class="logo">SensiCup</a>
+                <ul class="nav-links">
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/your-cup">Your Cup</a></li>
+                    <li><a href="/database">Database</a></li>
+                    <li><a href="/contact" class="active">Contact Us</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <div class="container">
+            <h1 class="page-title">Contact Us</h1>
+            
+            <div class="contact-section">
+                <div class="contact-info">
+                    <h3>Have any questions or comments? We would love to get in contact! Please use the contact us form below for us to receive your message.</h3>
+                    
+                    <form class="contact-form" action="/send-contact" method="POST">
+                        <div class="form-group">
+                            <label for="first_name">First name</label>
+                            <input type="text" id="first_name" name="first_name" placeholder="Jane" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="last_name">Last name</label>
+                            <input type="text" id="last_name" name="last_name" placeholder="Smitherton" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="email">Email address</label>
+                            <input type="email" id="email" name="email" placeholder="email@janesfakedomain.net" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="message">Your message</label>
+                            <textarea id="message" name="message" placeholder="Enter your question or message" required></textarea>
+                        </div>
+                        
+                        <button type="submit" class="submit-btn">Submit</button>
+                    </form>
+                </div>
+                
+            <div class="logo-section">
+                <img src="/static/SensiCup_Logo.jpg" alt="SensiCup Logo" style="max-width: 80%; max-height: 80%; border-radius: 15px;" />            </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-grid">
+                <div class="footer-section">
+                    <h4>SensiCup</h4>
+                    <h5><a href="/">Home</a></h5>
+                    <h5><a href="/contact">Contact Us</a></h5>
+                </div>
+                <div class="footer-section">
+                    <h4>Information</h4>
+                    <h5><a href="/your-cup">Your Cup</a></h5>
+                    <h5><a href="/database">Database</a></h5>
+                </div>
+            </div>
+        </footer>
+    </body>
+</html>
