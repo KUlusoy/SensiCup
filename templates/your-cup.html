@@ -660,8 +660,12 @@
                 </div>
             </div>
         </footer>
-
+<!-- Add this line right before your existing <script> tag -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
         <script>
+            let socket;
+            let currentCupId;
+            
             function connectToCup() {
                 const cupCode = document.getElementById('cup_code').value.trim();
                 
@@ -669,6 +673,8 @@
                     alert('Please enter a cup code');
                     return;
                 }
+                
+                currentCupId = cupCode;
                 
                 // Show the hidden content with animation
                 const hiddenContent = document.getElementById('hidden-content');
@@ -682,12 +688,104 @@
                     });
                 }, 100);
                 
-                // Update status based on cup code
+                // Connect to WebSocket and start receiving live data
+                connectToWebSocket(cupCode);
+                
+                // Also load initial hardcoded values as fallback
                 updateStatusBasedOnCupCode(cupCode);
             }
             
+            function connectToWebSocket(cupCode) {
+                // Connect to your Flask SocketIO server
+                socket = io();
+                
+                // Request latest data for this cup
+                socket.emit('get_latest_data', {'cup_id': cupCode});
+                
+                // Listen for real-time sensor updates
+                socket.on('sensor_update', function(data) {
+                    console.log('Received sensor data:', data);
+                    
+                    // Only update if this data is for our connected cup
+                    if (data.cup_id === currentCupId) {
+                        updateSensorDisplay(data);
+                    }
+                });
+                
+                socket.on('connect', function() {
+                    console.log('Connected to server');
+                });
+                
+                socket.on('disconnect', function() {
+                    console.log('Disconnected from server');
+                });
+            }
+            
+            function updateSensorDisplay(data) {
+                // Update pH
+                if (data.ph !== undefined) {
+                    document.getElementById('ph-display').textContent = data.ph.toFixed(1);
+                }
+                
+                // Update TDS
+                if (data.tds !== undefined) {
+                    document.getElementById('tds-display').textContent = Math.round(data.tds) + ' ppm';
+                }
+                
+                // Update Salinity
+                if (data.salinity !== undefined) {
+                    document.getElementById('salinity-display').textContent = (data.salinity * 100).toFixed(2) + '%';
+                }
+                
+                // Update Cleanliness
+                if (data.cleanliness_score !== undefined) {
+                    document.getElementById('cleanliness-display').textContent = Math.round(data.cleanliness_score);
+                }
+                
+                // Update overall water status based on the values
+                updateWaterStatus(data);
+            }
+            
+            function updateWaterStatus(data) {
+                let status = 'Good';
+                let statusIndicatorPosition = 75; // Default position (Good = 75%)
+                
+                // Simple logic to determine overall water quality
+                let issues = 0;
+                
+                // Check pH (6.5-8.5 is good)
+                if (data.ph < 6.5 || data.ph > 8.5) issues++;
+                
+                // Check TDS (under 300 is excellent, under 600 is good)
+                if (data.tds > 600) issues++;
+                else if (data.tds > 300) issues += 0.5;
+                
+                // Check cleanliness score
+                if (data.cleanliness_score < 60) issues++;
+                else if (data.cleanliness_score < 80) issues += 0.5;
+                
+                // Determine status
+                if (issues === 0) {
+                    status = 'Excellent';
+                    statusIndicatorPosition = 90;
+                } else if (issues <= 1) {
+                    status = 'Good';
+                    statusIndicatorPosition = 75;
+                } else if (issues <= 2) {
+                    status = 'Fair';
+                    statusIndicatorPosition = 50;
+                } else {
+                    status = 'Poor';
+                    statusIndicatorPosition = 25;
+                }
+                
+                // Update the display
+                document.getElementById('water-status').textContent = status;
+                document.querySelector('.status-indicator').style.left = statusIndicatorPosition + '%';
+            }
+            
             function updateStatusBasedOnCupCode(cupCode) {
-                // Hardcoded values for demo - you can customize this
+                // Fallback hardcoded values - these will be overridden by real data
                 let status = 'Good';
                 let ph = '7.2';
                 let tds = '245 ppm';
@@ -715,53 +813,14 @@
                     cleanliness = '42';
                 }
                 
-                // Update the display
+                // Update the display (will be overridden by real data when available)
                 document.getElementById('water-status').textContent = status;
                 document.getElementById('ph-display').textContent = ph;
                 document.getElementById('tds-display').textContent = tds;
                 document.getElementById('salinity-display').textContent = salinity;
                 document.getElementById('cleanliness-display').textContent = cleanliness;
-            }
+                                            }
             
-            // Modal functions
-            function openModal(modalId) {
-                document.getElementById(modalId).style.display = 'block';
-                document.body.style.overflow = 'hidden'; // Prevent background scrolling
-            }
-            
-            function closeModal(modalId) {
-                document.getElementById(modalId).style.display = 'none';
-                document.body.style.overflow = 'auto'; // Restore scrolling
-            }
-            
-            // Close modal when clicking outside of it
-            window.onclick = function(event) {
-                const modals = document.querySelectorAll('.modal');
-                modals.forEach(modal => {
-                    if (event.target === modal) {
-                        modal.style.display = 'none';
-                        document.body.style.overflow = 'auto';
-                    }
-                });
-            }
-            
-            // Allow Enter key to connect
-            document.getElementById('cup_code').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    connectToCup();
-                }
-            });
-            
-            // Close modal with Escape key
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    const openModal = document.querySelector('.modal[style*="block"]');
-                    if (openModal) {
-                        openModal.style.display = 'none';
-                        document.body.style.overflow = 'auto';
-                    }
-                }
-            });
         </script>
     </body>
 </html>
