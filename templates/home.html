@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SensiCup - Smart Water Quality Monitor</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+                min-height: 100vh;
+            }
+            
+            /* Header */
+            .header {
+                position: fixed;
+                top: 0;
+                width: 100%;
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                padding: 1rem 2rem;
+                z-index: 1000;
+                box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            }
+            
+            .nav {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+            
+            .logo {
+                font-size: 1.5rem;
+                font-weight: bold;
+                color: #1976d2;
+                text-decoration: none;
+            }
+            
+            .nav-links {
+                display: flex;
+                list-style: none;
+                gap: 2rem;
+            }
+            
+            .nav-links a {
+                text-decoration: none;
+                color: #333;
+                font-weight: 500;
+                padding: 0.5rem 1rem;
+                border-radius: 20px;
+                transition: all 0.3s ease;
+            }
+            
+            .nav-links a:hover {
+                background: #1976d2;
+                color: white;
+            }
+            
+            .nav-links a.active {
+                background: #333;
+                color: white;
+            }
+            
+            /* Hero Section */
+            .hero {
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .hero::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 200"><path d="M0,100 C150,200 350,0 500,100 C650,200 850,0 1000,100 L1000,200 L0,200 Z" fill="rgba(25,118,210,0.1)"/></svg>') repeat-x;
+                animation: wave 20s infinite linear;
+            }
+            
+            @keyframes wave {
+                0% { transform: translateX(0); }
+                100% { transform: translateX(-1000px); }
+            }
+            
+            .hero-content {
+                max-width: 600px;
+                padding: 2rem;
+                z-index: 1;
+                position: relative;
+            }
+            
+            .hero h1 {
+                font-size: 4rem;
+                margin-bottom: 1rem;
+                font-weight: 700;
+                color: #1976d2;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .hero .tagline {
+                font-size: 1.5rem;
+                margin-bottom: 3rem;
+                color: #666;
+                font-weight: 300;
+            }
+            
+            .cta-button {
+                background: #1976d2;
+                color: white;
+                padding: 15px 40px;
+                font-size: 1.2rem;
+                font-weight: 600;
+                border: none;
+                border-radius: 50px;
+                cursor: pointer;
+                text-decoration: none;
+                display: inline-block;
+                transition: all 0.3s ease;
+                box-shadow: 0 10px 30px rgba(25, 118, 210, 0.3);
+            }
+            
+            .cta-button:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 15px 40px rgba(25, 118, 210, 0.4);
+                background: #1565c0;
+            }
+            
+            /* Content Sections */
+            .content-section {
+                padding: 5rem 2rem;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+            
+            .section-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 4rem;
+                align-items: center;
+                margin-bottom: 5rem;
+            }
+            
+            .section-content h2 {
+                font-size: 2.5rem;
+                margin-bottom: 1.5rem;
+                color: #1976d2;
+            }
+            
+            .section-content p {
+                color: #666;
+                font-size: 1.1rem;
+                line-height: 1.8;
+                margin-bottom: 1.5rem;
+            }
+            
+            .prototype-image {
+                background: #f5f5f5;
+                border-radius: 15px;
+                padding: 2rem;
+                text-align: center;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            }
+            
+            .prototype-image img {
+                max-width: 100%;
+                height: auto;
+                border-radius: 10px;
+            }
+            
+            .team-section {
+                background: white;
+                border-radius: 20px;
+                padding: 3rem;
+                margin-top: 5rem;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                text-align: center;
+            }
+            
+            .team-section h2 {
+                font-size: 2.5rem;
+                margin-bottom: 2rem;
+                color: #1976d2;
+            }
+            
+            .team-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 2rem;
+                margin-top: 2rem;
+            }
+            
+            .team-member {
+                text-align: center;
+            }
+            
+            .team-member h4 {
+                color: #1976d2;
+                margin-bottom: 0.5rem;
+            }
+            
+            .team-member p {
+                color: #666;
+                font-size: 0.9rem;
+            }
+            
+            /* Footer */
+            .footer {
+                background: #333;
+                color: white;
+                text-align: center;
+                padding: 2rem;
+                margin-top: 5rem;
+            }
+            
+            /* Responsive Design */
+            @media (max-width: 768px) {
+                .hero h1 {
+                    font-size: 2.5rem;
+                }
+                
+                .section-grid {
+                    grid-template-columns: 1fr;
+                    gap: 2rem;
+                }
+                
+                .nav-links {
+                    display: none;
+                }
+                
+                .team-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Header -->
+        <header class="header">
+            <nav class="nav">
+                <a href="/" class="logo">SensiCup</a>
+                <ul class="nav-links">
+                    <li><a href="/" class="active">Home</a></li>
+                    <li><a href="/your-cup">Your Cup</a></li>
+                    <li><a href="/database">Database</a></li>
+                    <li><a href="/contact">Contact Us</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <h1>SensiCup</h1>
+                <p class="tagline">A health check for your water.</p>
+                <a href="/your-cup" class="cta-button">Enter your cup code now!</a>
+            </div>
+        </section>
+
+        <!-- Content Section -->
+        <div class="content-section">
+            <div class="section-grid">
+                <div class="section-content">
+                    <h2>About SensiCup</h2>
+                    <p>SensiCup was designed to be a practical tool for measuring your water's life quality without having to purchase different counterparts or sending water to laboratories.</p>
+                </div>
+                <div class="prototype-image">
+                    <p>Insert Final Prototype Image Here</p>
+                </div>
+            </div>
+            
+            <div class="section-grid">
+                <div class="prototype-image">
+                    <p>Insert Image of Poor Water Pipes from Schools Here</p>
+                </div>
+                <div class="section-content">
+                    <h2>Our Story</h2>
+                    <p>After studying in schools with poor water quality, we were determined to take action and measure the water quality in our schools in a friendly and convenient manner. SensiCup provides an affordable</p>
+                </div>
+            </div>
+            
+            <div class="team-section">
+                <h2>Our Team</h2>
+                <p>Insert Group Image Here</p>
+                <div class="team-grid">
+                    <div class="team-member">
+                        <h4>Kubra Ulusoy</h4>
+                        <p>Team Lead/Software Engineer</p>
+                    </div>
+                    <div class="team-member">
+                        <h4>Jasmine Algama</h4>
+                        <p>Hardware Engineer</p>
+                    </div>
+                    <div class="team-member">
+                        <h4>Samuel Baxter</h4>
+                        <p>Software/Hardware Engineer</p>
+                    </div>
+                    <div class="team-member">
+                        <h4>Nafrin Neha</h4>
+                        <p>3D CAD Designer</p>
+                    </div>
+                    <div class="team-member">
+                        <h4>Stephanie Yang</h4>
+                        <p>Software Engineer</p>
+                    </div>
+                </div>
+                <p style="margin-top: 2rem; font-style: italic;">Body text for whatever you'd like to add more to the subheading.</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2025 SensiCup. All rights reserved.</p>
+        </footer>
+    </body>
+</html>
