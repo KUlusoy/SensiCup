@@ -258,6 +258,7 @@
                 color: #666;
                 margin: 0 auto;
                 border: 3px solid #ddd;
+                overflow: hidden;
             }
             
             .particles-section {
@@ -322,6 +323,7 @@
                 color: white;
                 padding: 2rem;
                 border-radius: 15px 15px 0 0;
+                position: relative;
             }
             
             .modal-title {
@@ -518,13 +520,16 @@
                 <div class="diagram-section">
                     <div class="diagram-grid">
                         <div class="cup-diagram">
-                            <div style="background: #f0f0f0; min-height: 400px; width: 100%; display: flex; align-items: center; justify-content: center; border-radius: 10px;">
-                                <img src="/static/SensiCup_Final_Sketch.png" alt="SensiCup Sketch" ... />                            </div>
+                            <div style="background: #f0f0f0; min-height: 400px; width: 100%; display: flex; align-items: center; justify-content: center; border-radius: 10px; color: #666;">
+                                <!-- Fallback content if image doesn't load -->
+                                <div>SensiCup Diagram</div>
+                            </div>
                         </div>
                         <div class="sensor-info">
                             <div class="sensor-card" onclick="openModal('ph-modal')">pH Level: <span id="ph-display">7.2</span></div>
                             <div class="sensor-card" onclick="openModal('tds-modal')">TDS Level: <span id="tds-display">245 ppm</span></div>
                             <div class="sensor-card" onclick="openModal('salinity-modal')">Salinity Level: <span id="salinity-display">0.02%</span></div>
+                            <div class="sensor-card">Temperature: <span id="temperature-display">25.0°C</span></div>
                         </div>
                     </div>
                 </div>
@@ -533,7 +538,9 @@
                     <h2 class="live-feed-title">Water Image in Real Time</h2>
                     <div class="feed-grid">
                         <div class="camera-feed">
-                            <img id="live-video" src="/video_feed" alt="Live Water Feed" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />
+                            <img id="live-video" src="/video_feed" alt="Live Water Feed" 
+                                 style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
+                                 onerror="this.style.display='none'; this.parentNode.innerHTML='<div>Camera Not Available</div>';" />
                         </div>
                         <div class="particles-section">
                             <h3 class="particles-title">Particles Found</h3>
@@ -660,8 +667,9 @@
                 </div>
             </div>
         </footer>
-<!-- Add this line right before your existing <script> tag -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
+        <!-- Socket.IO and JavaScript -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
         <script>
             let socket;
             let currentCupId;
@@ -690,18 +698,30 @@
                 
                 // Connect to WebSocket and start receiving live data
                 connectToWebSocket(cupCode);
-                
+                showLoadingState();
                 // Also load initial hardcoded values as fallback
                 updateStatusBasedOnCupCode(cupCode);
+            }
+
+            function showLoadingState() {
+                document.getElementById('water-status').textContent = 'Loading...';
+                document.getElementById('ph-display').textContent = 'Loading...';
+                document.getElementById('tds-display').textContent = 'Loading...';
+                document.getElementById('salinity-display').textContent = 'Loading...';
+                document.getElementById('cleanliness-display').textContent = 'Loading...';
+                document.getElementById('temperature-display').textContent = 'Loading...';
             }
             
             function connectToWebSocket(cupCode) {
                 // Connect to your Flask SocketIO server
                 socket = io();
                 
-                // Request latest data for this cup
-                socket.emit('get_latest_data', {'cup_id': cupCode});
-                
+                socket.on('connect', function() {
+                    console.log('Connected to server');
+                    // Request latest data for this cup
+                    socket.emit('get_latest_data', {'cup_id': cupCode});
+                });
+
                 // Listen for real-time sensor updates
                 socket.on('sensor_update', function(data) {
                     console.log('Received sensor data:', data);
@@ -712,34 +732,49 @@
                     }
                 });
                 
-                socket.on('connect', function() {
-                    console.log('Connected to server');
-                });
-                
                 socket.on('disconnect', function() {
                     console.log('Disconnected from server');
+                });
+
+                socket.on('connect_error', function(error) {
+                    console.log('Connection error:', error);
+                    // Show fallback message
+                    document.getElementById('water-status').textContent = 'Connection Error';
                 });
             }
             
             function updateSensorDisplay(data) {
+                console.log('Updating display with:', data);
+                
                 // Update pH
-                if (data.ph !== undefined) {
-                    document.getElementById('ph-display').textContent = data.ph.toFixed(1);
+                if (data.ph !== undefined && data.ph !== null) {
+                    document.getElementById('ph-display').textContent = parseFloat(data.ph).toFixed(1);
                 }
                 
                 // Update TDS
-                if (data.tds !== undefined) {
-                    document.getElementById('tds-display').textContent = Math.round(data.tds) + ' ppm';
+                if (data.tds !== undefined && data.tds !== null) {
+                    document.getElementById('tds-display').textContent = Math.round(parseFloat(data.tds)) + ' ppm';
                 }
                 
-                // Update Salinity
-                if (data.salinity !== undefined) {
-                    document.getElementById('salinity-display').textContent = (data.salinity * 100).toFixed(2) + '%';
+                // Update Temperature
+                if (data.temperature !== undefined && data.temperature !== null) {
+                    document.getElementById('temperature-display').textContent = parseFloat(data.temperature).toFixed(1) + '°C';
+                }
+                
+                // Update Salinity - convert from decimal to percentage if needed
+                if (data.salinity !== undefined && data.salinity !== null) {
+                    let salinity = parseFloat(data.salinity);
+                    // If salinity is less than 1, assume it's already a percentage
+                    if (salinity < 1) {
+                        document.getElementById('salinity-display').textContent = (salinity * 100).toFixed(2) + '%';
+                    } else {
+                        document.getElementById('salinity-display').textContent = salinity.toFixed(2) + '%';
+                    }
                 }
                 
                 // Update Cleanliness
-                if (data.cleanliness_score !== undefined) {
-                    document.getElementById('cleanliness-display').textContent = Math.round(data.cleanliness_score);
+                if (data.cleanliness_score !== undefined && data.cleanliness_score !== null) {
+                    document.getElementById('cleanliness-display').textContent = Math.round(parseFloat(data.cleanliness_score));
                 }
                 
                 // Update overall water status based on the values
@@ -754,15 +789,31 @@
                 let issues = 0;
                 
                 // Check pH (6.5-8.5 is good)
-                if (data.ph < 6.5 || data.ph > 8.5) issues++;
+                const ph = parseFloat(data.ph);
+                if (ph < 6.5 || ph > 8.5) {
+                    issues++;
+                    console.log('pH issue detected:', ph);
+                }
                 
                 // Check TDS (under 300 is excellent, under 600 is good)
-                if (data.tds > 600) issues++;
-                else if (data.tds > 300) issues += 0.5;
+                const tds = parseFloat(data.tds);
+                if (tds > 600) {
+                    issues++;
+                    console.log('TDS issue detected:', tds);
+                } else if (tds > 300) {
+                    issues += 0.5;
+                    console.log('TDS fair quality:', tds);
+                }
                 
                 // Check cleanliness score
-                if (data.cleanliness_score < 60) issues++;
-                else if (data.cleanliness_score < 80) issues += 0.5;
+                const cleanliness = parseFloat(data.cleanliness_score);
+                if (cleanliness < 60) {
+                    issues++;
+                    console.log('Cleanliness issue detected:', cleanliness);
+                } else if (cleanliness < 80) {
+                    issues += 0.5;
+                    console.log('Cleanliness fair quality:', cleanliness);
+                }
                 
                 // Determine status
                 if (issues === 0) {
@@ -782,13 +833,15 @@
                 // Update the display
                 document.getElementById('water-status').textContent = status;
                 document.querySelector('.status-indicator').style.left = statusIndicatorPosition + '%';
-            }
+                console.log('Overall status:', status, 'Issues:', issues);
+            }    
             
             function updateStatusBasedOnCupCode(cupCode) {
                 // Fallback hardcoded values - these will be overridden by real data
                 let status = 'Good';
                 let ph = '7.2';
                 let tds = '245 ppm';
+                let temperature = '25.0°C';
                 let salinity = '0.02%';
                 let cleanliness = '85';
                 
@@ -797,18 +850,21 @@
                     status = 'Excellent';
                     ph = '7.4';
                     tds = '220 ppm';
+                    temperature = '23.5°C';
                     salinity = '0.01%';
                     cleanliness = '92';
                 } else if (cupCode.toUpperCase() === 'CUP456') {
                     status = 'Fair';
                     ph = '6.8';
                     tds = '350 ppm';
+                    temperature = '26.2°C';
                     salinity = '0.05%';
                     cleanliness = '68';
                 } else if (cupCode.toUpperCase() === 'CUP789') {
                     status = 'Poor';
                     ph = '5.9';
                     tds = '450 ppm';
+                    temperature = '28.1°C';
                     salinity = '0.08%';
                     cleanliness = '42';
                 }
@@ -817,10 +873,29 @@
                 document.getElementById('water-status').textContent = status;
                 document.getElementById('ph-display').textContent = ph;
                 document.getElementById('tds-display').textContent = tds;
+                document.getElementById('temperature-display').textContent = temperature;
                 document.getElementById('salinity-display').textContent = salinity;
                 document.getElementById('cleanliness-display').textContent = cleanliness;
-                                            }
-            
+            }
+
+            // Modal functions
+            function openModal(modalId) {
+                document.getElementById(modalId).style.display = 'block';
+            }
+
+            function closeModal(modalId) {
+                document.getElementById(modalId).style.display = 'none';
+            }
+
+            // Close modal when clicking outside of it
+            window.onclick = function(event) {
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(modal => {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
         </script>
     </body>
 </html>

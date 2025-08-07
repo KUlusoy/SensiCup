@@ -17,21 +17,33 @@ socketio = SocketIO(app)
 EMAIL_ADDRESS = "sensicupteam@gmail.com"
 EMAIL_PASSWORD = "rbie ebnn phut acnd"  # Use app password, not regular password
 
-# Initialize database
+# Initialize database with proper schema
 def init_db():
     conn = sqlite3.connect('water_quality.db')
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS sensor_readings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cup_id TEXT,
-            ph REAL,
-            tds REAL,
-            salinity REAL,
-            cleanliness_score REAL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
+    
+    # Check if temperature column exists, add it if it doesn't
+    cursor.execute("PRAGMA table_info(sensor_readings)")
+    columns = [column[1] for column in cursor.fetchall()]
+    
+    if 'sensor_readings' not in [table[0] for table in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]:
+        # Create table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE sensor_readings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cup_id TEXT,
+                ph REAL,
+                tds REAL,
+                temperature REAL,
+                salinity REAL,
+                cleanliness_score REAL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+    elif 'temperature' not in columns:
+        # Add temperature column if table exists but column doesn't
+        cursor.execute('ALTER TABLE sensor_readings ADD COLUMN temperature REAL DEFAULT 25.0')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_photos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,57 +56,119 @@ def init_db():
     conn.close()
 
 # --- Camera Stream Functions ---
-# This generator function captures frames from the webcam
-# and encodes them as JPEG images to be streamed.
 def gen_frames():
-    # Use 0 for default webcam. If you have multiple, try 1, 2, etc.
-    cap = cv2.VideoCapture(1)
-    if not cap.isOpened():
-        print("Error: Could not open video device.")
-        return
+    """Generate frames from available camera with fallback"""
+    cap = None
+    
+    # Try different camera indices (0, 1, 2) to find an available camera
+    for camera_index in range(3):
+        try:
+            cap = cv2.VideoCapture(camera_index)
+            if cap.isOpened():
+                print(f"Successfully opened camera at index {camera_index}")
+                break
+            else:
+                cap.release()
+        except Exception as e:
+            print(f"Failed to open camera {camera_index}: {e}")
+            continue
+    
+    if cap is None or not cap.isOpened():
+        print("Error: No camera available. Serving placeholder image.")
+        # Return a placeholder frame instead of failing
+        placeholder_frame = generate_placeholder_frame()
+        while True:
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + placeholder_frame + b'\r\n')
 
+    # Set camera properties for better performance
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FPS, 15)
+
+    frame_count = 0
     while True:
         success, frame = cap.read()
         if not success:
             print("Error: Could not read frame from camera.")
             break
+        
         try:
-            # Encode frame as JPEG
-            ret, buffer = cv2.imencode('.jpg', frame)
+            # Process every nth frame to reduce CPU usage
+            frame_count += 1
+            if frame_count % 2 == 0:  # Skip every other frame
+                continue
+                
+            # Resize frame to reduce bandwidth
+            frame = cv2.resize(frame, (320, 240))
+            
+            # Encode frame as JPEG with lower quality for better performance
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 70]
+            ret, buffer = cv2.imencode('.jpg', frame, encode_param)
+            
             if not ret:
                 print("Error: Could not encode frame.")
                 continue
-            frame = buffer.tobytes()
+                
+            frame_bytes = buffer.tobytes()
+            
             # Yield the frame in a multipart response format
             yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                   
         except Exception as e:
             print(f"Error processing frame: {e}")
             break
-    cap.release() # Release the camera when done
+            
+    if cap:
+        cap.release()
 
-# This new endpoint will serve the live video feed.
+def generate_placeholder_frame():
+    """Generate a placeholder image when no camera is available"""
+    import numpy as np
+    
+    # Create a simple placeholder image
+    img = np.zeros((240, 320, 3), dtype=np.uint8)
+    img.fill(128)  # Gray background
+    
+    # Add text (this is basic, you might want to use PIL for better text)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    text = "Camera Not Available"
+    text_size = cv2.getTextSize(text, font, 0.7, 2)[0]
+    text_x = (img.shape[1] - text_size[0]) // 2
+    text_y = (img.shape[0] + text_size[1]) // 2
+    cv2.putText(img, text, (text_x, text_y), font, 0.7, (255, 255, 255), 2)
+    
+    # Encode as JPEG
+    ret, buffer = cv2.imencode('.jpg', img)
+    return buffer.tobytes()
+
+# This endpoint serves the live video feed
 @app.route('/video_feed')
 def video_feed():
-    # Return a multipart response with the generated frames
     return Response(gen_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 # --- End Camera Stream Functions ---
 
-# Home page - updated design (removed about route)
+# Home page
 @app.route('/')
 def home():
     return render_template("home.html")
 
-# Your Cup page - updated with info popups
+# Your Cup page
 @app.route('/your-cup')
 def your_cup():
     return render_template("your-cup.html")
 
-# Database page - updated with "Database Section" instead of "Related Products"
+# Database page
 @app.route('/database')
 def database():
     return render_template("database.html")
+
+# Contact page
+@app.route('/contact')
+def contact():
+    return render_template("contact.html")
 
 # Function to send actual email
 def send_email(to_email, subject, body, from_name, from_email):
@@ -121,7 +195,7 @@ def send_email(to_email, subject, body, from_name, from_email):
         print(f"Email sending failed: {e}")
         return False
 
-# Handle contact form submission with actual email sending
+# Handle contact form submission
 @app.route('/send-contact', methods=['POST'])
 def send_contact():
     try:
@@ -235,60 +309,152 @@ def submit_photo():
             </div>
         '''
 
-# API endpoint for Raspberry Pi to send data
+# API endpoint for ESP32 to send sensor data
 @app.route('/api/sensor-data', methods=['POST'])
 def receive_sensor_data():
     try:
         data = request.json
+        print(f"Received raw data: {data}")  # Debug print
+        
+        # Extract sensor values with fallback defaults
+        cup_id = data.get('cup_id', 'UNKNOWN')
+        ph = float(data.get('ph', 7.0))
+        tds = float(data.get('tds', 0.0))
+        temperature = float(data.get('temperature', 25.0))
+        salinity = float(data.get('salinity', 0.0))
+        cleanliness_score = float(data.get('cleanliness_score', 85))
+        
+        print(f"Processed sensor data:")
+        print(f"Cup ID: {cup_id}")
+        print(f"pH: {ph}")
+        print(f"TDS: {tds} ppm")
+        print(f"Temperature: {temperature}°C")
+        print(f"Salinity: {salinity}")
+        print(f"Cleanliness Score: {cleanliness_score}")
         
         # Store in database
         conn = sqlite3.connect('water_quality.db')
         cursor = conn.cursor()
+        
+        # Insert the data
         cursor.execute('''
-            INSERT INTO sensor_readings (cup_id, ph, tds, salinity, cleanliness_score)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (data['cup_id'], data['ph'], data['tds'], data['salinity'], data['cleanliness_score']))
+            INSERT INTO sensor_readings (cup_id, ph, tds, temperature, salinity, cleanliness_score)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (cup_id, ph, tds, temperature, salinity, cleanliness_score))
         conn.commit()
         conn.close()
         
-        # Send real-time update to all connected clients
-        socketio.emit('sensor_update', data)
+        # Prepare data for WebSocket broadcast
+        sensor_data = {
+            'cup_id': cup_id,
+            'ph': ph,
+            'tds': tds,
+            'temperature': temperature,
+            'salinity': salinity,
+            'cleanliness_score': cleanliness_score,
+            'timestamp': datetime.now().isoformat()
+        }
         
-        return jsonify({'status': 'success', 'message': 'Data received'})
-    
+        # Send real-time update to all connected clients
+        socketio.emit('sensor_update', sensor_data)
+        
+        return jsonify({
+            'status': 'success', 
+            'message': 'Sensor data received successfully',
+            'data': sensor_data
+        }), 200
+        
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 400
+        print(f"Error processing sensor data: {str(e)}")
+        return jsonify({
+            'status': 'error', 
+            'message': str(e)
+        }), 400
 
-# Handle client connections
+# Handle client connections and requests for latest data
 @socketio.on('get_latest_data')
 def handle_latest_data(data):
     cup_id = data['cup_id']
+    print(f"Client requesting latest data for cup: {cup_id}")
     
-    # Get latest reading from database
+    try:
+        # Get latest reading from database
+        conn = sqlite3.connect('water_quality.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT ph, tds, temperature, salinity, cleanliness_score
+            FROM sensor_readings
+            WHERE cup_id = ?
+            ORDER BY timestamp DESC
+            LIMIT 1
+        ''', (cup_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            print(f"Found data for {cup_id}: {result}")
+            emit('sensor_update', {
+                'cup_id': cup_id,
+                'ph': result[0],
+                'tds': result[1],
+                'temperature': result[2],
+                'salinity': result[3],
+                'cleanliness_score': result[4]
+            })
+        else:
+            print(f"No data found for {cup_id}, sending defaults")
+            # Send default values if no data found
+            emit('sensor_update', {
+                'cup_id': cup_id,
+                'ph': 7.0,
+                'tds': 0.0,
+                'temperature': 25.0,
+                'salinity': 0.0,
+                'cleanliness_score': 85
+            })
+    except Exception as e:
+        print(f"Error handling latest data request: {e}")
+        # Send default values on error
+        emit('sensor_update', {
+            'cup_id': cup_id,
+            'ph': 7.0,
+            'tds': 0.0,
+            'temperature': 25.0,
+            'salinity': 0.0,
+            'cleanliness_score': 85
+        })
+
+# Test endpoint to manually send data (for debugging)
+@app.route('/test-data/<cup_id>')
+def test_data(cup_id):
+    """Send test data for debugging"""
+    test_sensor_data = {
+        'cup_id': cup_id,
+        'ph': 7.2,
+        'tds': 245,
+        'temperature': 23.5,
+        'salinity': 0.02,
+        'cleanliness_score': 85
+    }
+    
+    # Store in database
     conn = sqlite3.connect('water_quality.db')
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT ph, tds, salinity, cleanliness_score
-        FROM sensor_readings
-        WHERE cup_id = ?
-        ORDER BY timestamp DESC
-        LIMIT 1
-    ''', (cup_id,))
-    
-    result = cursor.fetchone()
+        INSERT INTO sensor_readings (cup_id, ph, tds, temperature, salinity, cleanliness_score)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (cup_id, 7.2, 245, 23.5, 0.02, 85))
+    conn.commit()
     conn.close()
     
-    if result:
-        emit('sensor_update', {
-            'cup_id': cup_id,
-            'ph': result[0],
-            'tds': result[1],
-            'salinity': result[2],
-            'cleanliness_score': result[3]
-        })
+    # Send via WebSocket
+    socketio.emit('sensor_update', test_sensor_data)
+    
+    return jsonify({'status': 'success', 'message': f'Test data sent for {cup_id}'})
 
 if __name__ == '__main__':
     init_db()
-    import os
-    port = int(os.environ.get('PORT', 5002))
-    socketio.run(app, debug=False, host='0.0.0.0', port=port)
+    port = int(os.environ.get('PORT', 5001))
+    print(f"Starting SensiCup app on port {port}")
+    socketio.run(app, debug=True, host='0.0.0.0', port=port)
