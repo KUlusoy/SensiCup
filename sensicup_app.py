@@ -55,73 +55,56 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- Camera Stream Functions ---
 def gen_frames():
-    """Generate frames from available camera with fallback"""
-    cap = None
-    
-    # Try different camera indices (0, 1, 2) to find an available camera
-    for camera_index in range(3):
-        try:
-            cap = cv2.VideoCapture(camera_index)
-            if cap.isOpened():
-                print(f"Successfully opened camera at index {camera_index}")
-                break
-            else:
-                cap.release()
-        except Exception as e:
-            print(f"Failed to open camera {camera_index}: {e}")
-            continue
-    
-    if cap is None or not cap.isOpened():
-        print("Error: No camera available. Serving placeholder image.")
-        # Return a placeholder frame instead of failing
-        placeholder_frame = generate_placeholder_frame()
-        while True:
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + placeholder_frame + b'\r\n')
+    """Generate frames from Raspberry Pi camera stream"""
+    import cv2
 
-    # Set camera properties for better performance
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    cap.set(cv2.CAP_PROP_FPS, 15)
+    # Raspberry Pi's IP and stream URL
+    PI_STREAM_URL = "http://10.83.4.104:8081/video_feed"
+
+    # Connect to the Raspberry Pi's MJPEG stream
+    cap = cv2.VideoCapture(PI_STREAM_URL)
+
+    if not cap.isOpened():
+        print(f"Error: Could not connect to Raspberry Pi camera stream at {PI_STREAM_URL}")
+        return
 
     frame_count = 0
     while True:
         success, frame = cap.read()
         if not success:
-            print("Error: Could not read frame from camera.")
+            print("Error: Could not read frame from Raspberry Pi stream.")
             break
-        
+
         try:
-            # Process every nth frame to reduce CPU usage
+            # Process every other frame to reduce load
             frame_count += 1
-            if frame_count % 2 == 0:  # Skip every other frame
+            if frame_count % 2 == 0:
                 continue
-                
-            # Resize frame to reduce bandwidth
+
+            # Resize to save bandwidth
             frame = cv2.resize(frame, (320, 240))
-            
-            # Encode frame as JPEG with lower quality for better performance
+
+            # Encode frame as JPEG (lower quality = faster streaming)
             encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 70]
             ret, buffer = cv2.imencode('.jpg', frame, encode_param)
-            
             if not ret:
                 print("Error: Could not encode frame.")
                 continue
-                
+
             frame_bytes = buffer.tobytes()
-            
-            # Yield the frame in a multipart response format
+
+            # Yield in multipart HTTP format
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-                   
+
         except Exception as e:
             print(f"Error processing frame: {e}")
             break
-            
-    if cap:
-        cap.release()
+
+    cap.release()
+
+
 
 def generate_placeholder_frame():
     """Generate a placeholder image when no camera is available"""
@@ -160,10 +143,33 @@ def home():
 def your_cup():
     return render_template("your-cup.html")
 
-# Database page
 @app.route('/database')
 def database():
-    return render_template("database.html")
+    conn = sqlite3.connect('water_quality.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_databases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            photo_count INTEGER DEFAULT 0,
+            date_created DATE DEFAULT CURRENT_DATE
+        )
+    ''')
+    cursor.execute('SELECT * FROM user_databases ORDER BY date_created DESC')
+    databases = []
+    for row in cursor.fetchall():
+        databases.append({
+            'id': row[0],
+            'name': row[1],
+            'description': row[2],
+            'photo_count': row[3],
+            'date_created': row[4]
+        })
+
+    conn.close()
+
+    return render_template('database.html', databases=databases)
 
 # Contact page
 @app.route('/contact')
@@ -275,39 +281,85 @@ This message was sent from the SensiCup contact form.
             </div>
         '''
 
-# Handle photo submission
+# Handle database creation and photo submission
 @app.route('/submit-photo', methods=['POST'])
 def submit_photo():
     try:
+        database_name = request.form['database_name']
         description = request.form['description']
-        cup_id = request.form.get('cup_id', 'unknown')
+        photos = request.files.getlist('photos')
         
-        # Store in database
+        if not photos or len(photos) == 0:
+            return '''
+            <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
+                <h1 style="color: #ff4444; margin-bottom: 2rem;">❌ Error!</h1>
+                <p style="font-size: 1.2rem; margin-bottom: 2rem;">Please select at least one photo.</p>
+                <a href="/database" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Database</a>
+            </div>
+            '''
+        
+        # Store database in database
         conn = sqlite3.connect('water_quality.db')
         cursor = conn.cursor()
+        
+        # Create databases table if it doesn't exist
         cursor.execute('''
-            INSERT INTO user_photos (cup_id, description)
-            VALUES (?, ?)
-        ''', (cup_id, description))
+            CREATE TABLE IF NOT EXISTS user_databases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                photo_count INTEGER DEFAULT 0,
+                date_created DATE DEFAULT CURRENT_DATE
+            )
+        ''')
+        
+        # Insert new database
+        cursor.execute('''
+            INSERT INTO user_databases (name, description, photo_count)
+            VALUES (?, ?, ?)
+        ''', (database_name, description, len(photos)))
+        
+        # You can also save the actual photo files here if needed
+        # for photo in photos:
+        #     if photo.filename != '':
+        #         photo.save(f"uploads/{photo.filename}")
+        
         conn.commit()
         conn.close()
         
         return '''
         <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-            <h1 style="color: #4CAF50; margin-bottom: 2rem;">✅ Photo Submitted Successfully!</h1>
-            <p style="font-size: 1.2rem; margin-bottom: 2rem;">Thank you for contributing to our database!</p>
+            <h1 style="color: #4CAF50; margin-bottom: 2rem;">✅ Database Created Successfully!</h1>
+            <p style="font-size: 1.2rem; margin-bottom: 2rem;">Your database has been created with {} photos!</p>
             <a href="/database" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Database</a>
         </div>
-        '''
+        '''.format(len(photos))
         
     except Exception as e:
         return '''
         <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-                <h1 style="color: #4CAF50; margin-bottom: 2rem;">✅ Message Sent Successfully!</h1>
-                <p style="font-size: 1.2rem; margin-bottom: 2rem;">Thank you for contacting us. We've received your message and will get back to you soon!</p>
-                <a href="/" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Return to Home</a>
-            </div>
+            <h1 style="color: #ff4444; margin-bottom: 2rem;">❌ Error!</h1>
+            <p style="font-size: 1.2rem; margin-bottom: 2rem;">Something went wrong. Please try again.</p>
+            <a href="/database" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Database</a>
+        </div>
         '''
+
+# Handle database deletion
+@app.route('/delete-database', methods=['POST'])
+def delete_database():
+    try:
+        database_id = request.form['database_id']
+        
+        conn = sqlite3.connect('water_quality.db')
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM user_databases WHERE id = ?', (database_id,))
+        conn.commit()
+        conn.close()
+        
+        return redirect('/database')
+        
+    except Exception as e:
+        return redirect('/database')
 
 # API endpoint for ESP32 to send sensor data
 @app.route('/api/sensor-data', methods=['POST'])
@@ -455,6 +507,6 @@ def test_data(cup_id):
 
 if __name__ == '__main__':
     init_db()
-    port = int(os.environ.get('PORT', 5001))
+    port = int(os.environ.get('PORT', 5004))
     print(f"Starting SensiCup app on port {port}")
     socketio.run(app, debug=True, host='0.0.0.0', port=port)

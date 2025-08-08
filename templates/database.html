@@ -85,7 +85,23 @@
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 3rem;
-                align-items: center;
+                align-items: flex-start;
+            }
+            
+            .submit-section {
+                padding-right: 2rem;
+                border-right: 2px solid #f0f0f0;
+            }
+            
+            .upload-photos-section {
+                padding-left: 2rem;
+            }
+            
+            .section-title {
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+                color: #333;
+                font-weight: 600;
             }
             
             .upload-content h2 {
@@ -101,7 +117,7 @@
             }
             
             .upload-form {
-                margin-top: 2rem;
+                margin-top: 1rem;
             }
             
             .upload-form input[type="text"] {
@@ -135,6 +151,62 @@
                 background: #555;
             }
             
+            .upload-area {
+                background: #f5f5f5;
+                border: 2px dashed #ccc;
+                border-radius: 10px;
+                padding: 2rem;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                min-height: 150px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                margin-top: 1rem;
+            }
+            
+            .upload-area:hover {
+                background: #ebebeb;
+                border-color: #999;
+            }
+            
+            .upload-area.dragover {
+                background: #e3f2fd;
+                border-color: #1976d2;
+            }
+            
+            .upload-area i {
+                font-size: 2rem;
+                color: #999;
+                margin-bottom: 1rem;
+            }
+            
+            .upload-area p {
+                color: #666;
+                margin: 0;
+                font-size: 0.9rem;
+            }
+            
+            .upload-area input[type="file"] {
+                display: none;
+            }
+            
+            .uploaded-files {
+                margin-top: 1rem;
+                text-align: left;
+            }
+            
+            .file-item {
+                background: #e8f5e8;
+                padding: 0.5rem 1rem;
+                border-radius: 5px;
+                margin-bottom: 0.5rem;
+                font-size: 0.9rem;
+                color: #333;
+            }
+            
             /* Database Section */
             .database-section {
                 margin-top: 4rem;
@@ -158,6 +230,29 @@
                 padding: 2rem;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.1);
                 text-align: center;
+                position: relative;
+            }
+            
+            .delete-btn {
+                position: absolute;
+                top: 1rem;
+                right: 1rem;
+                background: #ff4444;
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 30px;
+                height: 30px;
+                cursor: pointer;
+                font-size: 1rem;
+                transition: background 0.3s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .delete-btn:hover {
+                background: #cc0000;
             }
             
             .database-image {
@@ -226,6 +321,18 @@
                     gap: 2rem;
                 }
                 
+                .submit-section {
+                    border-right: none;
+                    border-bottom: 2px solid #f0f0f0;
+                    padding-right: 0;
+                    padding-bottom: 2rem;
+                }
+                
+                .upload-photos-section {
+                    padding-left: 0;
+                    padding-top: 2rem;
+                }
+                
                 .nav-links {
                     display: none;
                 }
@@ -256,57 +363,50 @@
 
         <div class="container">
             <div class="upload-section">
-                <div class="upload-content">
-                    <h2>Upload photos from your SensiCup!</h2>
-                    <p>Currently, datasets that label bacteria in the water to monitor water quality are scarce. By adding your photos, you can contribute to crowdsourcing and creating collections of photos for others to download, which is helpful to make machine learning models better or the science community in general.</p>
+                <div class="submit-section">
+                    <h2>Submit Database Information</h2>
+                    <p>Currently, datasets that label particles in the water to monitor water quality are scarce. By adding your photos, you can contribute to crowdsourcing and creating collections of photos for others to download, which is helpful to make machine learning models better or the science community in general.</p>
                     
-                    <form class="upload-form" action="/submit-photo" method="POST">
+                    <form class="upload-form" action="/submit-photo" method="POST" enctype="multipart/form-data" id="databaseForm">
+                        <input type="text" placeholder="Database name" name="database_name" required>
                         <input type="text" placeholder="Add a description" name="description" required>
-                        <button type="submit" class="submit-btn">Submit Photos</button>
+                        <button type="submit" class="submit-btn">Create Database</button>
                     </form>
+                </div>
+                
+                <div class="upload-photos-section">
+                    <h3 class="section-title">Upload Photos</h3>
+                    <p style="color: #666; margin-bottom: 1rem;">Select or drag photos to upload to your database</p>
                     
+                    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                        <input type="file" id="fileInput" name="photos" multiple accept="image/*" form="databaseForm">
+                        <i>📁</i>
+                        <p>Click or drag photos here</p>
+                        <div class="uploaded-files" id="uploadedFiles"></div>
+                    </div>
                 </div>
             </div>
             
             <div class="database-section">
-                <h2>Database Section</h2>
-                <div class="database-grid">
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
-                    <div class="database-card">
-                        <div class="database-image">Database Image</div>
-                        <h3>____'s Database</h3>
-                        <p>Small Description</p>
-                        <p><strong>(Anything else)</strong></p>
-                    </div>
+                <h2>Your Databases</h2>
+                <div class="database-grid" id="databaseGrid">
+                    <!-- Databases will be loaded from backend -->
+                    {% if databases %}
+                        {% for database in databases %}
+                        <div class="database-card">
+                            <form action="/delete-database" method="POST" style="display: inline;">
+                                <input type="hidden" name="database_id" value="{{ database.id }}">
+                                <button type="submit" class="delete-btn" title="Delete database" onclick="return confirm('Are you sure you want to delete this database?')">×</button>
+                            </form>
+                            <div class="database-image">📊 {{ database.photo_count }} photos</div>
+                            <h3>{{ database.name }}</h3>
+                            <p>{{ database.description }}</p>
+                            <p><strong>Created: {{ database.date_created }}</strong></p>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p style="grid-column: 1 / -1; text-align: center; color: #666; font-style: italic;">No databases created yet. Create your first database above!</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -326,5 +426,45 @@
                 </div>
             </div>
         </footer>
+
+        <script>
+            const uploadArea = document.querySelector('.upload-area');
+            const fileInput = document.getElementById('fileInput');
+            const uploadedFiles = document.getElementById('uploadedFiles');
+
+            // Handle file input change
+            fileInput.addEventListener('change', function(e) {
+                displayFiles(e.target.files);
+            });
+
+            // Handle drag and drop
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                fileInput.files = files;
+                displayFiles(files);
+            });
+
+            function displayFiles(files) {
+                uploadedFiles.innerHTML = '';
+                for (let i = 0; i < files.length; i++) {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.textContent = files[i].name;
+                    uploadedFiles.appendChild(fileItem);
+                }
+            }
+        </script>
     </body>
 </html>
