@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, Response
+#sensicup_app.py
+from flask import Flask, render_template, request, jsonify, redirect, url_for, Response, send_from_directory
 from flask_socketio import SocketIO, emit
 import sqlite3
 import json
@@ -8,9 +9,19 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import cv2 # Import OpenCV
+# Add this import at the top
+import logging
+import requests
+import threading
+import time
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
+
+# Create static folder if it doesn't exist
+if not os.path.exists('static'):
+    os.makedirs('static')
+
 socketio = SocketIO(app)
 
 # Email configuration
@@ -55,12 +66,54 @@ def init_db():
     conn.commit()
     conn.close()
 
+def fetch_sensicup_snapshot():
+    """Fetch a single snapshot from Raspberry Pi stream and save as static/sensicup.jpg"""
+    SNAPSHOT_URL = "http://10.83.4.104:8081/get_snapshot"
+    try:
+        response = requests.get(SNAPSHOT_URL, timeout=10)  # Increased timeout
+        if response.status_code == 200:
+            save_path = os.path.join('static', 'sensicup.jpg')  # Simplified path
+            with open(save_path, "wb") as f:
+                f.write(response.content)
+            print(f"✅ Snapshot saved to {save_path} ({len(response.content)} bytes)")
+            return True
+        else:
+            print(f"❌ Error: Received status code {response.status_code}")
+            return False
+    except requests.RequestException as e:
+        print(f"❌ Error fetching snapshot: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        return False
+
+def snapshot_loop():
+    """Continuously fetch snapshots every 2 seconds"""
+    consecutive_failures = 0
+    max_failures = 10
+    
+    while True:
+        try:
+            if fetch_sensicup_snapshot():
+                consecutive_failures = 0  # Reset failure counter on success
+                time.sleep(2)
+            else:
+                consecutive_failures += 1
+                if consecutive_failures >= max_failures:
+                    print(f"⚠️ Too many consecutive failures ({consecutive_failures}), waiting longer...")
+                    time.sleep(10)  # Wait longer after repeated failures
+                else:
+                    time.sleep(5)  # Wait a bit longer on failure
+        except Exception as e:
+            print(f"❌ Error in snapshot loop: {e}")
+            time.sleep(5)
+
 def gen_frames():
     """Generate frames from Raspberry Pi camera stream"""
     import cv2
 
     # Raspberry Pi's IP and stream URL
-    PI_STREAM_URL = "http://10.83.4.104:8081/video_feed"
+    PI_STREAM_URL = "http://10.83.4.104:8081/get_snapshot"
 
     # Connect to the Raspberry Pi's MJPEG stream
     cap = cv2.VideoCapture(PI_STREAM_URL)
@@ -93,18 +146,15 @@ def gen_frames():
                 continue
 
             frame_bytes = buffer.tobytes()
-
-            # Yield in multipart HTTP format
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            # Save to file as static/sensicup.jpg
+            with open("static/sensicup.jpg", "wb") as f:
+                f.write(frame_bytes)
 
         except Exception as e:
             print(f"Error processing frame: {e}")
             break
 
     cap.release()
-
-
 
 def generate_placeholder_frame():
     """Generate a placeholder image when no camera is available"""
@@ -125,6 +175,90 @@ def generate_placeholder_frame():
     # Encode as JPEG
     ret, buffer = cv2.imencode('.jpg', img)
     return buffer.tobytes()
+
+# Add this function to handle ML-generated scores
+def update_cleanliness_with_ml(cup_id, ph, tds, temperature, salinity):
+    """
+    This function can be called when new sensor data arrives
+    to update the cleanliness score using the ML model
+    """
+    try:
+        # Try to import and use the ML model
+        from water_quality_model import WaterQualityPredictor
+        
+        # Create predictor and load model
+        predictor = WaterQualityPredictor()
+        if predictor.load_model():
+            # Create sensor data dict
+            sensor_data = {
+                'ph': ph,
+                'tds': tds,
+                'temperature': temperature,
+                'salinity': salinity
+            }
+            
+            # Get ML prediction
+            result = predictor.process_sensor_data(sensor_data)
+            
+            if result:
+                ml_score = result['cleanliness_score']
+                print(f"🤖 ML Model predicted cleanliness score: {ml_score}")
+                return ml_score
+            else:
+                print("⚠️ ML model failed to predict, using fallback calculation")
+                return calculate_fallback_score(ph, tds, salinity)
+        else:
+            print("⚠️ ML model not available, using fallback calculation")
+            return calculate_fallback_score(ph, tds, salinity)
+            
+    except ImportError:
+        print("⚠️ ML model files not found, using fallback calculation") 
+        return calculate_fallback_score(ph, tds, salinity)
+    except Exception as e:
+        print(f"❌ Error using ML model: {e}, using fallback calculation")
+        return calculate_fallback_score(ph, tds, salinity)
+
+def calculate_fallback_score(ph, tds, salinity):
+    """
+    Simple fallback calculation when ML model isn't available
+    This is similar to your existing thresholds
+    """
+    score = 0
+    
+    # pH scoring (40 points max)
+    if 6.5 <= ph <= 8.5:  # Safe (Good)
+        score += 40
+    elif 6.0 <= ph < 6.5 or 8.5 < ph <= 9.0:
+        score += 25
+    else:
+        score += 10
+        
+    # TDS scoring (35 points max)
+    if 50 <= tds <= 150:  # Excellent
+        score += 35
+    elif 150 < tds <= 300:  # Good
+        score += 25
+    elif 300 < tds <= 500:  # Acceptable
+        score += 15
+    else:
+        score += 5
+        
+    # Salinity scoring (25 points max)  
+    if salinity < 0.5:  # Fresh
+        score += 25
+    elif salinity < 1.0:  # Marginal
+        score += 15
+    elif salinity < 2.0:  # Brackish
+        score += 10
+    else:
+        score += 5
+    
+    return min(score, 100)
+
+# Serve static files (especially images)
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('static', filename)
 
 # This endpoint serves the live video feed
 @app.route('/video_feed')
@@ -361,12 +495,12 @@ def delete_database():
     except Exception as e:
         return redirect('/database')
 
-# API endpoint for ESP32 to send sensor data
+# Update your existing API endpoint
 @app.route('/api/sensor-data', methods=['POST'])
 def receive_sensor_data():
     try:
         data = request.json
-        print(f"Received raw data: {data}")  # Debug print
+        print(f"Received raw data: {data}")
         
         # Extract sensor values with fallback defaults
         cup_id = data.get('cup_id', 'UNKNOWN')
@@ -374,9 +508,19 @@ def receive_sensor_data():
         tds = float(data.get('tds', 0.0))
         temperature = float(data.get('temperature', 25.0))
         salinity = float(data.get('salinity', 0.0))
-        cleanliness_score = float(data.get('cleanliness_score', 85))
         
-        print(f"Processed sensor data:")
+        # Try to get cleanliness score from the request first
+        cleanliness_score = data.get('cleanliness_score')
+        
+        # If no cleanliness score provided, calculate it
+        if cleanliness_score is None:
+            print("🤖 No cleanliness score provided, generating with ML model...")
+            cleanliness_score = update_cleanliness_with_ml(cup_id, ph, tds, temperature, salinity)
+        else:
+            cleanliness_score = float(cleanliness_score)
+            print(f"✅ Using provided cleanliness score: {cleanliness_score}")
+        
+        print(f"Final processed sensor data:")
         print(f"Cup ID: {cup_id}")
         print(f"pH: {ph}")
         print(f"TDS: {tds} ppm")
@@ -413,7 +557,8 @@ def receive_sensor_data():
         return jsonify({
             'status': 'success', 
             'message': 'Sensor data received successfully',
-            'data': sensor_data
+            'data': sensor_data,
+            'ml_generated': cleanliness_score != data.get('cleanliness_score')
         }), 200
         
     except Exception as e:
@@ -422,6 +567,117 @@ def receive_sensor_data():
             'status': 'error', 
             'message': str(e)
         }), 400
+
+# Add a new endpoint to manually trigger ML prediction
+@app.route('/api/predict-cleanliness', methods=['POST'])
+def predict_cleanliness():
+    """Manual endpoint to get ML prediction for given sensor values"""
+    try:
+        data = request.json
+        
+        ph = float(data.get('ph', 7.0))
+        tds = float(data.get('tds', 200.0))
+        temperature = float(data.get('temperature', 25.0))
+        salinity = float(data.get('salinity', 0.5))
+        cup_id = data.get('cup_id', 'MANUAL_TEST')
+        
+        # Get ML prediction
+        ml_score = update_cleanliness_with_ml(cup_id, ph, tds, temperature, salinity)
+        
+        result = {
+            'cup_id': cup_id,
+            'ph': ph,
+            'tds': tds,
+            'temperature': temperature,
+            'salinity': salinity,
+            'cleanliness_score': ml_score,
+            'prediction_method': 'ML_MODEL',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Determine quality level for display
+        if ml_score >= 85:
+            quality_level = "Excellent"
+            color_zone = "green"
+        elif ml_score >= 70:
+            quality_level = "Very Good"
+            color_zone = "light-green"
+        elif ml_score >= 55:
+            quality_level = "Good"
+            color_zone = "yellow"
+        elif ml_score >= 40:
+            quality_level = "Fair"
+            color_zone = "orange"
+        else:
+            quality_level = "Poor"
+            color_zone = "red"
+        
+        result['quality_level'] = quality_level
+        result['color_zone'] = color_zone
+        
+        return jsonify({
+            'status': 'success',
+            'prediction': result
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+    
+# Add a test route to generate sample data with ML scores
+@app.route('/test-ml/<cup_id>')
+def test_ml_data(cup_id):
+    """Generate test data and get ML prediction"""
+    import random
+    
+    # Generate random but realistic sensor values
+    ph = round(random.uniform(6.0, 8.5), 1)
+    tds = round(random.uniform(100, 400), 0)
+    temperature = round(random.uniform(18, 30), 1)
+    salinity = round(random.uniform(0.01, 0.1), 3)
+    
+    # Get ML prediction
+    ml_score = update_cleanliness_with_ml(cup_id, ph, tds, temperature, salinity)
+    
+    test_data = {
+        'cup_id': cup_id,
+        'ph': ph,
+        'tds': tds,
+        'temperature': temperature,
+        'salinity': salinity,
+        'cleanliness_score': ml_score
+    }
+    
+    # Store in database
+    conn = sqlite3.connect('water_quality.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO sensor_readings (cup_id, ph, tds, temperature, salinity, cleanliness_score)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (cup_id, ph, tds, temperature, salinity, ml_score))
+    conn.commit()
+    conn.close()
+    
+    # Send via WebSocket
+    socketio.emit('sensor_update', test_data)
+    
+    return jsonify({
+        'status': 'success', 
+        'message': f'ML test data generated for {cup_id}',
+        'data': test_data
+    })
+
+# Add logging configuration for better debugging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('sensicup.log'),
+        logging.StreamHandler()
+    ]
+)
 
 # Handle client connections and requests for latest data
 @socketio.on('get_latest_data')
@@ -506,7 +762,30 @@ def test_data(cup_id):
     return jsonify({'status': 'success', 'message': f'Test data sent for {cup_id}'})
 
 if __name__ == '__main__':
+    # Initialize database
     init_db()
+    
+    # Try to initialize ML model
+    try:
+        from water_quality_model import WaterQualityPredictor
+        predictor = WaterQualityPredictor()
+        if predictor.load_model():
+            print("✅ ML model loaded successfully!")
+        else:
+            print("⚠️ ML model not found, will train on first use")
+    except ImportError:
+        print("⚠️ ML model files not available, using fallback calculations")
+    except Exception as e:
+        print(f"⚠️ ML model initialization error: {e}")
+
+    # Start snapshot loop in a separate thread
+    print("🚀 Starting camera snapshot thread...")
+    threading.Thread(target=snapshot_loop, daemon=True).start()
+
     port = int(os.environ.get('PORT', 5004))
-    print(f"Starting SensiCup app on port {port}")
+    print(f"🚀 Starting SensiCup app on port {port}")
+    print(f"🤖 ML-powered cleanliness scoring enabled!")
+    print(f"🌐 Access your app at: http://localhost:{port}")
+    print(f"📷 Camera feed will be available at: /static/sensicup.jpg")
+    
     socketio.run(app, debug=True, host='0.0.0.0', port=port)

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
+        <!-- <meta http-equiv="refresh" content="15"> -->
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Your Cup - SensiCup</title>
@@ -81,52 +82,6 @@
                 font-size: 3rem;
                 margin-bottom: 2rem;
                 color: #333;
-            }
-            
-            .cup-code-section {
-                background: white;
-                border-radius: 15px;
-                padding: 3rem;
-                margin-bottom: 3rem;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            }
-            
-            .cup-code-input {
-                padding: 15px 30px;
-                font-size: 1.2rem;
-                border: 2px solid #ddd;
-                border-radius: 50px;
-                width: 300px;
-                margin-bottom: 2rem;
-                outline: none;
-                transition: border-color 0.3s ease;
-            }
-            
-            .cup-code-input:focus {
-                border-color: #1976d2;
-            }
-            
-            .connect-btn {
-                background: #1976d2;
-                color: white;
-                padding: 15px 40px;
-                font-size: 1.2rem;
-                border: none;
-                border-radius: 50px;
-                cursor: pointer;
-                margin-top: 1rem;
-                transition: all 0.3s ease;
-            }
-            
-            .connect-btn:hover {
-                background: #1565c0;
-                transform: translateY(-2px);
-            }
-            
-            /* Hidden content that shows after entering cup code */
-            .hidden-content {
-                display: none;
-                animation: fadeIn 0.5s ease-in;
             }
             
             @keyframes fadeIn {
@@ -216,7 +171,7 @@
             }
             
             .sensor-card::after {
-                content: '📊 Click for more info';
+                content: '💡 Click for more info';
                 position: absolute;
                 right: 10px;
                 top: 50%;
@@ -259,6 +214,31 @@
                 margin: 0 auto;
                 border: 3px solid #ddd;
                 overflow: hidden;
+                position: relative;
+            }
+            
+            .camera-feed img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 50%;
+            }
+            
+            .camera-status {
+                position: absolute;
+                bottom: -30px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 0.9rem;
+                color: #666;
+            }
+            
+            .camera-status.connected {
+                color: #4CAF50;
+            }
+            
+            .camera-status.error {
+                color: #f44336;
             }
             
             .particles-section {
@@ -460,11 +440,6 @@
                     font-size: 2rem;
                 }
                 
-                .cup-code-input {
-                    width: 100%;
-                    max-width: 300px;
-                }
-                
                 .camera-feed {
                     width: 250px;
                     height: 250px;
@@ -485,6 +460,7 @@
             }
         </style>
     </head>
+
     <body>
         <!-- Header -->
         <header class="header">
@@ -500,55 +476,48 @@
         </header>
 
         <div class="container">
-            <h1 class="page-title">Enter Your Cup Code Here:</h1>
+            <h1 class="page-title">Your SensiCup Dashboard</h1>
             
-            <div class="cup-code-section">
-                <input type="text" id="cup_code" class="cup-code-input" placeholder="Cup Code" required>
-                <br>
-                <button type="button" class="connect-btn" onclick="connectToCup()">Connect</button>
+            <!-- Status Section - Always Visible -->
+            <div class="status-section">
+                <p class="status-text">Your water is <span id="water-status">Good</span></p>
+                <div class="status-bar">
+                    <div class="status-indicator"></div>
+                </div>
             </div>
             
-            <!-- Hidden content that appears after entering cup code -->
-            <div id="hidden-content" class="hidden-content">
-                <div class="status-section">
-                    <p class="status-text">Your water is <span id="water-status">Good</span></p>
-                    <div class="status-bar">
-                        <div class="status-indicator"></div>
-                    </div>
-                </div>
-                
-                <div class="diagram-section">
-                    <div class="diagram-grid">
-                        <div class="cup-diagram">
-                            <div style="background: #f0f0f0; min-height: 400px; width: 100%; display: flex; align-items: center; justify-content: center; border-radius: 10px; color: #666;">
-                                <!-- Fallback content if image doesn't load -->
-                                <div>SensiCup Diagram</div>
-                            </div>
-                        </div>
-                        <div class="sensor-info">
-                            <div class="sensor-card" onclick="openModal('ph-modal')">pH Level: <span id="ph-display">7.2</span></div>
-                            <div class="sensor-card" onclick="openModal('tds-modal')">TDS Level: <span id="tds-display">245 ppm</span></div>
-                            <div class="sensor-card" onclick="openModal('salinity-modal')">Salinity Level: <span id="salinity-display">0.02%</span></div>
-                            <div class="sensor-card">Temperature: <span id="temperature-display">25.0°C</span></div>
+            <!-- Diagram Section - Always Visible -->
+            <div class="diagram-section">
+                <div class="diagram-grid">
+                    <div class="cup-diagram">
+                        <div style="background: #f0f0f0; min-height: 400px; width: 100%; display: flex; align-items: center; justify-content: center; border-radius: 10px; color: #666;">
+                            <!-- Fallback content if image doesn't load -->
+                            <div>SensiCup Diagram</div>
                         </div>
                     </div>
+                    <div class="sensor-info">
+                        <div class="sensor-card" onclick="openModal('ph-modal')">pH Level: <span id="ph-display">7.2</span></div>
+                        <div class="sensor-card" onclick="openModal('tds-modal')">TDS Level: <span id="tds-display">245 ppm</span></div>
+                        <div class="sensor-card" onclick="openModal('salinity-modal')">Salinity Level: <span id="salinity-display">0.02%</span></div>
+                        <div class="sensor-card">Temperature: <span id="temperature-display">25.0°C</span></div>
+                    </div>
                 </div>
-                
-                <div class="live-feed-section">
-                    <h2 class="live-feed-title">Water Image in Real Time</h2>
-                    <div class="feed-grid">
-                        <div class="camera-feed">
-                            <img id="live-video" src="/video_feed" alt="Live Water Feed" 
-                                 style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
-                                 onerror="this.style.display='none'; this.parentNode.innerHTML='<div>Camera Not Available</div>';" />
-                        </div>
-                        <div class="particles-section">
-                            <h3 class="particles-title">Particles Found</h3>
-                            <div class="particles-display">
-                                <div>
-                                    <p>✅ No harmful particles detected</p>
-                                    <p>🔬 Cleanliness Score: <span id="cleanliness-display">85</span>/100</p>
-                                </div>
+            </div>
+            
+            <!-- Live Feed Section - Always Visible -->
+            <div class="live-feed-section">
+                <h2 class="live-feed-title">Water Image in Real Time</h2>
+                <div class="feed-grid">
+                    <div class="camera-feed">
+                        <img id="live-video" alt="Live Water Feed" />
+                        <div id="camera-status" class="camera-status">Loading...</div>
+                    </div>
+                    <div class="particles-section">
+                        <h3 class="particles-title">Particles Found</h3>
+                        <div class="particles-display">
+                            <div>
+                                <p>✓ No harmful particles detected</p>
+                                <p>🔬 Cleanliness Score: <span id="cleanliness-display">85</span>/100</p>
                             </div>
                         </div>
                     </div>
@@ -672,44 +641,78 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
         <script>
             let socket;
-            let currentCupId;
+            let imageRefreshInterval;
+            let imageLoadAttempts = 0;
+            const MAX_LOAD_ATTEMPTS = 5;
+            const currentCupId = 'DEFAULT_CUP'; // Since we removed cup code input
             
-            function connectToCup() {
-                const cupCode = document.getElementById('cup_code').value.trim();
+            // Auto-connect on page load
+            window.addEventListener('load', function() {
+                connectToWebSocket(currentCupId);
+                loadInitialData();
+                initializeCameraFeed();
+            });
+            
+            function loadInitialData() {
+                // Load some default values immediately
+                updateSensorDisplay({
+                    ph: 7.2,
+                    tds: 245,
+                    temperature: 25.0,
+                    salinity: 0.02,
+                    cleanliness_score: 85
+                });
+            }
+            
+            function initializeCameraFeed() {
+                const liveVideo = document.getElementById('live-video');
+                const statusElement = document.getElementById('camera-status');
                 
-                if (!cupCode) {
-                    alert('Please enter a cup code');
-                    return;
+                function loadImage() {
+                    const timestamp = new Date().getTime();
+                    const imageUrl = `/static/sensicup.jpg?t=${timestamp}`;
+                    
+                    console.log('Attempting to load image:', imageUrl);
+                    
+                    // Create a new image object to test loading
+                    const testImage = new Image();
+                    
+                    testImage.onload = function() {
+                        console.log('Image loaded successfully');
+                        liveVideo.src = imageUrl;
+                        statusElement.textContent = 'Connected';
+                        statusElement.className = 'camera-status connected';
+                        imageLoadAttempts = 0; // Reset attempts counter
+                    };
+                    
+                    testImage.onerror = function() {
+                        console.log('Image load failed, attempt:', imageLoadAttempts + 1);
+                        imageLoadAttempts++;
+                        
+                        if (imageLoadAttempts >= MAX_LOAD_ATTEMPTS) {
+                            console.log('Max load attempts reached, showing error');
+                            liveVideo.style.display = 'none';
+                            statusElement.textContent = 'Camera Not Available';
+                            statusElement.className = 'camera-status error';
+                            
+                            // Show placeholder text in camera feed
+                            const cameraFeed = document.querySelector('.camera-feed');
+                            cameraFeed.innerHTML = '<div>Camera Not Available</div><div id="camera-status" class="camera-status error">Camera Not Available</div>';
+                        } else {
+                            statusElement.textContent = `Connecting... (${imageLoadAttempts}/${MAX_LOAD_ATTEMPTS})`;
+                            statusElement.className = 'camera-status';
+                        }
+                    };
+                    
+                    // Start the test load
+                    testImage.src = imageUrl;
                 }
                 
-                currentCupId = cupCode;
+                // Initial load
+                loadImage();
                 
-                // Show the hidden content with animation
-                const hiddenContent = document.getElementById('hidden-content');
-                hiddenContent.style.display = 'block';
-                
-                // Scroll to the revealed content
-                setTimeout(() => {
-                    hiddenContent.scrollIntoView({ 
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }, 100);
-                
-                // Connect to WebSocket and start receiving live data
-                connectToWebSocket(cupCode);
-                showLoadingState();
-                // Also load initial hardcoded values as fallback
-                updateStatusBasedOnCupCode(cupCode);
-            }
-
-            function showLoadingState() {
-                document.getElementById('water-status').textContent = 'Loading...';
-                document.getElementById('ph-display').textContent = 'Loading...';
-                document.getElementById('tds-display').textContent = 'Loading...';
-                document.getElementById('salinity-display').textContent = 'Loading...';
-                document.getElementById('cleanliness-display').textContent = 'Loading...';
-                document.getElementById('temperature-display').textContent = 'Loading...';
+                // Set up interval for refreshing
+                imageRefreshInterval = setInterval(loadImage, 2000);
             }
             
             function connectToWebSocket(cupCode) {
@@ -725,11 +728,7 @@
                 // Listen for real-time sensor updates
                 socket.on('sensor_update', function(data) {
                     console.log('Received sensor data:', data);
-                    
-                    // Only update if this data is for our connected cup
-                    if (data.cup_id === currentCupId) {
-                        updateSensorDisplay(data);
-                    }
+                    updateSensorDisplay(data);
                 });
                 
                 socket.on('disconnect', function() {
@@ -738,8 +737,7 @@
 
                 socket.on('connect_error', function(error) {
                     console.log('Connection error:', error);
-                    // Show fallback message
-                    document.getElementById('water-status').textContent = 'Connection Error';
+                    // Keep showing last known values
                 });
             }
             
@@ -766,9 +764,9 @@
                     let salinity = parseFloat(data.salinity);
                     // If salinity is less than 1, assume it's already a percentage
                     if (salinity < 1) {
-                        document.getElementById('salinity-display').textContent = (salinity * 100).toFixed(2) + '%';
+                        document.getElementById('salinity-display').textContent = (salinity).toFixed(2) + ' ppt';
                     } else {
-                        document.getElementById('salinity-display').textContent = salinity.toFixed(2) + '%';
+                        document.getElementById('salinity-display').textContent = salinity.toFixed(2) + ' ppt';
                     }
                 }
                 
@@ -834,48 +832,6 @@
                 document.getElementById('water-status').textContent = status;
                 document.querySelector('.status-indicator').style.left = statusIndicatorPosition + '%';
                 console.log('Overall status:', status, 'Issues:', issues);
-            }    
-            
-            function updateStatusBasedOnCupCode(cupCode) {
-                // Fallback hardcoded values - these will be overridden by real data
-                let status = 'Good';
-                let ph = '7.2';
-                let tds = '245 ppm';
-                let temperature = '25.0°C';
-                let salinity = '0.02%';
-                let cleanliness = '85';
-                
-                // Example: different values for different cup codes
-                if (cupCode.toUpperCase() === 'CUP123') {
-                    status = 'Excellent';
-                    ph = '7.4';
-                    tds = '220 ppm';
-                    temperature = '23.5°C';
-                    salinity = '0.01%';
-                    cleanliness = '92';
-                } else if (cupCode.toUpperCase() === 'CUP456') {
-                    status = 'Fair';
-                    ph = '6.8';
-                    tds = '350 ppm';
-                    temperature = '26.2°C';
-                    salinity = '0.05%';
-                    cleanliness = '68';
-                } else if (cupCode.toUpperCase() === 'CUP789') {
-                    status = 'Poor';
-                    ph = '5.9';
-                    tds = '450 ppm';
-                    temperature = '28.1°C';
-                    salinity = '0.08%';
-                    cleanliness = '42';
-                }
-                
-                // Update the display (will be overridden by real data when available)
-                document.getElementById('water-status').textContent = status;
-                document.getElementById('ph-display').textContent = ph;
-                document.getElementById('tds-display').textContent = tds;
-                document.getElementById('temperature-display').textContent = temperature;
-                document.getElementById('salinity-display').textContent = salinity;
-                document.getElementById('cleanliness-display').textContent = cleanliness;
             }
 
             // Modal functions
@@ -896,6 +852,13 @@
                     }
                 });
             }
+            
+            // Clean up intervals when page unloads
+            window.addEventListener('beforeunload', function() {
+                if (imageRefreshInterval) {
+                    clearInterval(imageRefreshInterval);
+                }
+            });
         </script>
     </body>
 </html>
