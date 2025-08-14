@@ -17,56 +17,63 @@ class WaterQualityPredictor:
         
     def calculate_quality_score(self, ph, tds, salinity_ppt, temperature):
         """
-        Calculate quality score based on thresholds you provided
+        Calculate quality score based on weighted importance
+        pH (40%) > TDS (30%) > Temperature (20%) > Salinity (10%)
         Returns score from 0-100 (higher is better)
         """
         score = 0
         
-        # pH scoring (30 points max)
-        if 6.5 <= ph <= 8.5:  # Safe (Good)
+        # pH scoring (40 points max - HIGHEST WEIGHT)
+        # More strict penalties for extreme values
+        if 6.8 <= ph <= 8.2:  # Tightened optimal range
+            score += 40
+        elif 6.5 <= ph < 6.8 or 8.2 < ph <= 8.5:  # Slightly outside range
             score += 30
-        elif 6.0 <= ph < 6.5 or 8.5 < ph <= 9.0:  # Slightly outside range
-            score += 20
-        elif 5.5 <= ph < 6.0 or 9.0 < ph <= 9.5:  # More outside range
-            score += 10
-        else:  # Poor (very acidic or basic)
+        elif 6.0 <= ph < 6.5 or 8.5 < ph <= 9.0:  # More concerning
+            score += 15  # Reduced from 20
+        elif 5.5 <= ph < 6.0 or 9.0 < ph <= 9.5:  # Poor
+            score += 5   # Reduced from 10
+        else:  # Very poor (very acidic or basic)
             score += 0
             
-        # TDS scoring (25 points max)
+        # TDS scoring (30 points max - SECOND HIGHEST WEIGHT)
+        # More strict thresholds for contamination
         if 50 <= tds <= 150:  # Excellent
-            score += 25
-        elif 150 < tds <= 300:  # Good
-            score += 20
+            score += 30
+        elif 150 < tds <= 250:  # Good (tightened from 300)
+            score += 24
         elif tds < 50:  # Ultra-pure (might lack minerals)
-            score += 15
-        elif 300 < tds <= 500:  # Acceptable
-            score += 10
-        else:  # Potentially unsafe (>500)
+            score += 18  # Slightly reduced
+        elif 250 < tds <= 400:  # Fair (was 300-500)
+            score += 12  # Reduced from previous "Acceptable" 
+        elif 400 < tds <= 600:  # Poor (new threshold)
+            score += 6   # Low score for high contamination
+        else:  # Very poor (>600) - dirty water should fall here
             score += 0
             
-        # Salinity scoring (25 points max)
-        if salinity_ppt < 0.5:  # Fresh
-            score += 25
-        elif 0.5 <= salinity_ppt < 1.0:  # Marginal
+        # Temperature scoring (20 points max - THIRD PRIORITY)
+        if 18 <= temperature <= 25:  # Ideal range (tightened)
             score += 20
-        elif 1.0 <= salinity_ppt < 2.0:  # Brackish
+        elif 15 <= temperature < 18 or 25 < temperature <= 28:  # Good range
+            score += 16
+        elif 10 <= temperature < 15 or 28 < temperature <= 32:  # Acceptable
             score += 10
-        elif 2.0 <= salinity_ppt < 10.0:  # Saline
-            score += 5
-        else:  # Highly saline or brine
-            score += 0
-            
-        # Temperature scoring (20 points max)
-        # Ideal drinking water temperature is around 15-25°C
-        if 15 <= temperature <= 25:  # Ideal range
-            score += 20
-        elif 10 <= temperature < 15 or 25 < temperature <= 30:  # Good range
-            score += 15
-        elif 5 <= temperature < 10 or 30 < temperature <= 35:  # Acceptable
-            score += 10
-        elif 0 <= temperature < 5 or 35 < temperature <= 40:  # Poor
-            score += 5
+        elif 5 <= temperature < 10 or 32 < temperature <= 37:  # Poor
+            score += 4   # Reduced penalty
         else:  # Very poor
+            score += 0
+            
+        # Salinity scoring (10 points max - LOWEST WEIGHT)
+        # Since this overlaps with TDS, keep it simple
+        if salinity_ppt < 0.3:  # Fresh (tightened)
+            score += 10
+        elif 0.3 <= salinity_ppt < 0.8:  # Marginal
+            score += 7
+        elif 0.8 <= salinity_ppt < 1.5:  # Brackish
+            score += 4
+        elif 1.5 <= salinity_ppt < 3.0:  # Saline
+            score += 2
+        else:  # Highly saline or brine
             score += 0
             
         return min(score, 100)  # Cap at 100

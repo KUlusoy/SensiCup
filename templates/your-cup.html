@@ -140,68 +140,6 @@
                 text-align: center;
             }
             
-            .cup-diagram img {
-                max-width: 100%;
-                height: auto;
-                border-radius: 10px;
-            }
-            
-            .sensor-info {
-                display: flex;
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            .sensor-card {
-                background: #1976d2;
-                color: white;
-                padding: 1rem 2rem;
-                border-radius: 10px;
-                text-align: left;
-                font-weight: 500;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                position: relative;
-            }
-            
-            .sensor-card:hover {
-                background: #1565c0;
-                transform: translateY(-2px);
-                box-shadow: 0 5px 15px rgba(25, 118, 210, 0.3);
-            }
-            
-            .sensor-card::after {
-                content: '💡 Click for more info';
-                position: absolute;
-                right: 10px;
-                top: 50%;
-                transform: translateY(-50%);
-                font-size: 0.8rem;
-                opacity: 0.7;
-            }
-            
-            /* Live Feed Section */
-            .live-feed-section {
-                background: white;
-                border-radius: 15px;
-                padding: 3rem;
-                margin: 3rem 0;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            }
-            
-            .live-feed-title {
-                font-size: 2rem;
-                margin-bottom: 2rem;
-                color: #333;
-            }
-            
-            .feed-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 3rem;
-                align-items: center;
-            }
-            
             .camera-feed {
                 background: #f0f0f0;
                 border-radius: 50%;
@@ -241,25 +179,66 @@
                 color: #f44336;
             }
             
-            .particles-section {
-                text-align: center;
-            }
-            
-            .particles-title {
-                font-size: 1.5rem;
-                margin-bottom: 1rem;
-                color: #333;
-            }
-            
-            .particles-display {
-                background: #f0f0f0;
-                border-radius: 10px;
-                padding: 2rem;
-                color: #666;
-                min-height: 200px;
+            .sensor-info {
                 display: flex;
-                align-items: center;
-                justify-content: center;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .sensor-card {
+                background: #1976d2;
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 10px;
+                text-align: left;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                position: relative;
+            }
+
+            .temperature-card {
+                background: #1976d2;
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 10px;
+                text-align: left;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                position: relative;
+            }
+
+            .sensor-card:hover {
+                background: #1565c0;
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(25, 118, 210, 0.3);
+            }
+            
+            .sensor-card::after {
+                content: '📊 Click for more info';
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 0.8rem;
+                opacity: 0.7;
+            }
+            
+            .temperature-card:hover {
+                background: #1565c0;
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(25, 118, 210, 0.3);
+            }
+            
+            .temperature-card::after {
+                content: ' ';
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 0.8rem;
+                opacity: 0.7;
             }
             
             /* Modal Styles */
@@ -426,8 +405,7 @@
             
             /* Responsive Design */
             @media (max-width: 768px) {
-                .diagram-grid,
-                .feed-grid {
+                .diagram-grid {
                     grid-template-columns: 1fr;
                     gap: 2rem;
                 }
@@ -486,39 +464,22 @@
                 </div>
             </div>
             
-            <!-- Diagram Section - Always Visible -->
+            <!-- Diagram Section - Now with camera feed instead of image -->
             <div class="diagram-section">
                 <div class="diagram-grid">
                     <div class="cup-diagram">
-                        <div style="background: #f0f0f0; min-height: 400px; width: 100%; display: flex; align-items: center; justify-content: center; border-radius: 10px; color: #666;">
-                            <!-- Fallback content if image doesn't load -->
-                            <div>SensiCup Diagram</div>
+                        <div class="camera-feed">
+                            <img id="live-video" alt="Live Water Feed" />
+                            <div id="camera-status" class="camera-status">Loading...</div>
                         </div>
                     </div>
                     <div class="sensor-info">
                         <div class="sensor-card" onclick="openModal('ph-modal')">pH Level: <span id="ph-display">7.2</span></div>
                         <div class="sensor-card" onclick="openModal('tds-modal')">TDS Level: <span id="tds-display">245 ppm</span></div>
-                        <div class="sensor-card" onclick="openModal('salinity-modal')">Salinity Level: <span id="salinity-display">0.02%</span></div>
-                        <div class="sensor-card">Temperature: <span id="temperature-display">25.0°C</span></div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Live Feed Section - Always Visible -->
-            <div class="live-feed-section">
-                <h2 class="live-feed-title">Water Image in Real Time</h2>
-                <div class="feed-grid">
-                    <div class="camera-feed">
-                        <img id="live-video" alt="Live Water Feed" />
-                        <div id="camera-status" class="camera-status">Loading...</div>
-                    </div>
-                    <div class="particles-section">
-                        <h3 class="particles-title">Particles Found</h3>
-                        <div class="particles-display">
-                            <div>
-                                <p>✓ No harmful particles detected</p>
-                                <p>🔬 Cleanliness Score: <span id="cleanliness-display">85</span>/100</p>
-                            </div>
+                        <div class="sensor-card" onclick="openModal('salinity-modal')">Salinity Level: <span id="salinity-display">0.02 ppt</span></div>
+                        <div class="temperature-card">Temperature: <span id="temperature-display">25.0 °C</span></div>
+                        <div style="background: #28a745; color: white; padding: 1rem 2rem; border-radius: 10px; text-align: left; font-weight: 500; margin-top: 1rem;">
+                            Cleanliness Score: <span id="cleanliness-display">85</span>/100
                         </div>
                     </div>
                 </div>
@@ -602,20 +563,19 @@
                     <table class="info-table">
                         <thead>
                             <tr>
-                                <th>Salinity (mg/L)</th>
+                                <th>Salinity (ppt)</th>
                                 <th>Quality</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td>0 - 600</td><td>Good</td></tr>
-                            <tr><td>600 - 900</td><td>Fair</td></tr>
-                            <tr><td>900 - 1,200</td><td>Poor</td></tr>
-                            <tr><td>> 1,200</td><td>Unacceptable (unpalatable)</td></tr>
+                            <tr><td>0 - 0.5</td><td>Good</td></tr>
+                            <tr><td>0.5 - 1.0</td><td>Fair</td></tr>
+                            <tr><td>> 1.0</td><td>Poor</td></tr>
                         </tbody>
                     </table>
                     
                     <div class="citation">
-                        "River Water Salinity Impact on Drinking Water Treatment Plant Performance Using Artificial Neural Network." Journal of Engineering, vol. 25, no. 8, July 2019, pp. 149–59. https://doi.org/10.31026/j.eng.2019.08.10.
+                        Understanding Salinity. Department of Water. Government of Western Australia. wadow.clients.squiz.net/water-topics/water-quality/managing-water-quality/understanding-salinity
                     </div>
                 </div>
             </div>
@@ -756,7 +716,7 @@
                 
                 // Update Temperature
                 if (data.temperature !== undefined && data.temperature !== null) {
-                    document.getElementById('temperature-display').textContent = parseFloat(data.temperature).toFixed(1) + '°C';
+                    document.getElementById('temperature-display').textContent = parseFloat(data.temperature).toFixed(1) + ' °C';
                 }
                 
                 // Update Salinity - convert from decimal to percentage if needed

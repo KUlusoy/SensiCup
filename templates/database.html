@@ -4,6 +4,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Database - SensiCup</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
         <style>
             * {
                 margin: 0;
@@ -231,9 +232,30 @@
                 box-shadow: 0 10px 30px rgba(0,0,0,0.1);
                 text-align: center;
                 position: relative;
+                cursor: pointer; /* Make the card clickable */
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+
+            .database-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 15px 40px rgba(0,0,0,0.15);
             }
             
-            .delete-btn {
+            .database-card-content {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                height: 100%;
+            }
+
+            .database-card-buttons {
+                display: flex;
+                justify-content: space-around;
+                margin-top: 1rem;
+            }
+            
+            .delete-btn, .download-btn {
                 position: absolute;
                 top: 1rem;
                 right: 1rem;
@@ -250,20 +272,42 @@
                 align-items: center;
                 justify-content: center;
             }
-            
-            .delete-btn:hover {
-                background: #cc0000;
+
+            .delete-btn {
+                background: #ff4444;
+                right: 1rem;
             }
-            
-            .database-image {
-                background: #f0f0f0;
+
+            .download-btn {
+                background: #1976d2;
+                right: 4.5rem;
+                font-size: 1.1rem;
+            }
+
+            .delete-btn:hover { background: #cc0000; }
+            .download-btn:hover { background: #1565c0; }
+
+            .database-image-container {
                 height: 200px;
                 border-radius: 10px;
                 margin-bottom: 1rem;
+                overflow: hidden;
+                position: relative;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                background: #f0f0f0;
+            }
+
+            .database-image-container img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            .database-image-container .placeholder {
                 color: #666;
+                font-style: italic;
             }
             
             .database-card h3 {
@@ -275,7 +319,85 @@
                 color: #666;
                 font-size: 0.9rem;
             }
-            
+
+            /* Lightbox/Modal */
+            .lightbox {
+                display: none;
+                position: fixed;
+                z-index: 2000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0,0,0,0.9);
+                justify-content: center;
+                align-items: center;
+            }
+
+            .lightbox-content {
+                position: relative;
+                max-width: 80%;
+                max-height: 80%;
+                display: flex;
+                align-items: center;
+            }
+
+            .lightbox-content img {
+                max-width: 80%;
+                max-height: 80%;
+                border-radius: 10px;
+                display: block;
+                margin: auto;
+            }
+
+            .lightbox-prev, .lightbox-next {
+                cursor: pointer;
+                position: absolute
+                top: 50%;
+                transform: translateY(-50%);
+                color: white;
+                font-size: 3rem;
+                font-weight: bold;
+                transition: 0.3s;
+                user-select: none;
+                padding: 1rem;
+                background-color: rgba(0,0,0,0.5);
+                border-radius: 50%;
+            }
+
+            .lightbox-close {
+                cursor: pointer;
+                position: absolute;
+                top: calc(1rem + 20px);
+                right: 1rem;
+                color: white;
+                font-weight: bold;
+                transition: 0.3s;
+                user-select: none;
+                background-color: transparent;
+                border: 2px solid white;
+
+                font-size: 1.5rem; /* Make the 'x' smaller */
+                padding: 0.5rem; /* Use equal padding to create a square button */
+                width: 2.5rem; /* Explicitly set width and height for perfect circle */
+                height: 2.5rem;
+                border-radius: 50%; /* Make it a circle */
+                display: flex; /* Use flexbox to center the 'x' */
+                align-items: center;
+                justify-content: center;
+                transform: translateY(-25px);
+            }
+
+            .lightbox-prev { left: 2rem; }
+            .lightbox-next { right: 2rem; }
+
+            .lightbox-close:hover,
+            .lightbox-prev:hover,
+            .lightbox-next:hover {
+                background-color: rgba(255,255,255,0.2);
+            }
+
             /* Footer */
             .footer {
                 background: #333;
@@ -344,6 +466,14 @@
                 .footer-grid {
                     grid-template-columns: 1fr;
                 }
+                .lightbox-prev, .lightbox-next {
+                    font-size: 2rem;
+                    padding: 0.5rem;
+                }
+                .lightbox-close {
+                    top: 1rem;
+                    right: 1rem;
+                }
             }
         </style>
     </head>
@@ -380,7 +510,7 @@
                     
                     <div class="upload-area" onclick="document.getElementById('fileInput').click()">
                         <input type="file" id="fileInput" name="photos" multiple accept="image/*" form="databaseForm">
-                        <i>📁</i>
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
                         <p>Click or drag photos here</p>
                         <div class="uploaded-files" id="uploadedFiles"></div>
                     </div>
@@ -393,14 +523,28 @@
                     <!-- Databases will be loaded from backend -->
                     {% if databases %}
                         {% for database in databases %}
-                        <div class="database-card">
-                            <form action="/delete-database" method="POST" style="display: inline;">
-                                <input type="hidden" name="database_id" value="{{ database.id }}">
-                                <button type="submit" class="delete-btn" title="Delete database" onclick="return confirm('Are you sure you want to delete this database?')">×</button>
-                            </form>
-                            <div class="database-image">📊 {{ database.photo_count }} photos</div>
+                        <div class="database-card" data-id="{{ database.id }}">
+                            <div class="database-card-buttons">
+                                <form action="/delete-database" method="POST" style="display: inline;" onclick="event.stopPropagation()">
+                                    <input type="hidden" name="database_id" value="{{ database.id }}">
+                                    <button type="submit" class="delete-btn" title="Delete database">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                                <a href="/download_database/{{ database.id }}" class="download-btn" title="Download database" onclick="event.stopPropagation()">
+                                    <i class="fa-solid fa-download"></i>
+                                </a>
+                            </div>
+                            <div class="database-image-container">
+                                {% if database.first_photo_path %}
+                                    <img src="{{ url_for('display_photo', filename=database.first_photo_path) }}" alt="Cover image for {{ database.name }}">
+                                {% else %}
+                                    <p class="placeholder">No photos uploaded</p>
+                                {% endif %}
+                            </div>
                             <h3>{{ database.name }}</h3>
                             <p>{{ database.description }}</p>
+                            <p><strong>{{ database.photo_count }} photos</strong></p>
                             <p><strong>Created: {{ database.date_created }}</strong></p>
                         </div>
                         {% endfor %}
@@ -408,6 +552,16 @@
                         <p style="grid-column: 1 / -1; text-align: center; color: #666; font-style: italic;">No databases created yet. Create your first database above!</p>
                     {% endif %}
                 </div>
+            </div>
+        </div>
+
+        <!-- The Lightbox Modal -->
+        <div id="lightbox" class="lightbox">
+            <span class="lightbox-close" id="closeBtn">&times;</span>
+            <div class="lightbox-content">
+                <a class="lightbox-prev" id="prevBtn">&#10094;</a>
+                <img id="lightbox-image" src="" alt="">
+                <a class="lightbox-next" id="nextBtn">&#10095;</a>
             </div>
         </div>
 
@@ -431,6 +585,14 @@
             const uploadArea = document.querySelector('.upload-area');
             const fileInput = document.getElementById('fileInput');
             const uploadedFiles = document.getElementById('uploadedFiles');
+            const databaseGrid = document.getElementById('databaseGrid');
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImage = document.getElementById('lightbox-image');
+            const closeBtn = document.getElementById('closeBtn');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            let currentPhotos = [];
+            let currentPhotoIndex = 0;
 
             // Handle file input change
             fileInput.addEventListener('change', function(e) {
@@ -465,6 +627,78 @@
                     uploadedFiles.appendChild(fileItem);
                 }
             }
+            
+            // Handle opening the lightbox when a database card is clicked
+            databaseGrid.addEventListener('click', async function(e) {
+                const card = e.target.closest('.database-card');
+                if (card) {
+                    const databaseId = card.dataset.id;
+                    try {
+                        const response = await fetch(`/get_photos/${databaseId}`);
+                        const photoPaths = await response.json();
+                        if (photoPaths.length > 0) {
+                            currentPhotos = photoPaths.map(path => `/display_photo/${path}`);
+                            currentPhotoIndex = 0;
+                            lightbox.style.display = "flex";
+                            updateLightboxImage();
+                        } else {
+                            // Optionally, show a message that there are no photos
+                            alert("This database has no photos to display.");
+                        }
+                    } catch (error) {
+                        console.error('Error fetching photos:', error);
+                    }
+                }
+            });
+
+            // Update the image in the lightbox
+            function updateLightboxImage() {
+                if (currentPhotos.length > 0) {
+                    lightboxImage.src = currentPhotos[currentPhotoIndex];
+                }
+            }
+
+            // Navigate to the previous image
+            prevBtn.addEventListener('click', function() {
+                if (currentPhotos.length > 0) {
+                    currentPhotoIndex = (currentPhotoIndex - 1 + currentPhotos.length) % currentPhotos.length;
+                    updateLightboxImage();
+                }
+            });
+
+            // Navigate to the next image
+            nextBtn.addEventListener('click', function() {
+                if (currentPhotos.length > 0) {
+                    currentPhotoIndex = (currentPhotoIndex + 1) % currentPhotos.length;
+                    updateLightboxImage();
+                }
+            });
+
+            // Close the lightbox
+            closeBtn.addEventListener('click', function() {
+                lightbox.style.display = "none";
+            });
+
+            // Close the lightbox by clicking outside the image
+            lightbox.addEventListener('click', function(e) {
+                if (e.target === lightbox) {
+                    lightbox.style.display = "none";
+                }
+            });
+
+            // Add keyboard navigation
+            document.addEventListener('keydown', function(e) {
+                if (lightbox.style.display === "flex") {
+                    if (e.key === "ArrowLeft") {
+                        prevBtn.click();
+                    } else if (e.key === "ArrowRight") {
+                        nextBtn.click();
+                    } else if (e.key === "Escape") {
+                        closeBtn.click();
+                    }
+                }
+            });
+
         </script>
     </body>
 </html>

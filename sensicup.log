@@ -71,3 +71,87 @@
 2025-08-13 17:44:51,990 - INFO -  * Restarting with stat
 2025-08-13 17:44:52,800 - WARNING -  * Debugger is active!
 2025-08-13 17:44:52,803 - INFO -  * Debugger PIN: 929-544-025
+2025-08-13 18:01:41,303 - INFO -  * Restarting with stat
+2025-08-13 18:01:42,055 - WARNING -  * Debugger is active!
+2025-08-13 18:01:42,061 - INFO -  * Debugger PIN: 929-544-025
+2025-08-13 18:04:03,118 - INFO -  * Restarting with stat
+2025-08-13 18:04:03,894 - WARNING -  * Debugger is active!
+2025-08-13 18:04:03,897 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 09:51:24,202 - INFO -  * Restarting with stat
+2025-08-14 09:51:25,030 - WARNING -  * Debugger is active!
+2025-08-14 09:51:25,036 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 09:59:53,708 - INFO -  * Restarting with stat
+2025-08-14 09:59:54,518 - WARNING -  * Debugger is active!
+2025-08-14 09:59:54,528 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 10:39:51,469 - INFO -  * Restarting with stat
+2025-08-14 10:39:52,261 - WARNING -  * Debugger is active!
+2025-08-14 10:39:52,264 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 10:48:01,169 - INFO -  * Restarting with stat
+2025-08-14 10:48:01,953 - WARNING -  * Debugger is active!
+2025-08-14 10:48:01,957 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 10:48:48,576 - INFO -  * Restarting with stat
+2025-08-14 10:48:49,375 - WARNING -  * Debugger is active!
+2025-08-14 10:48:49,378 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:05:38,089 - INFO -  * Restarting with stat
+2025-08-14 13:05:38,902 - WARNING -  * Debugger is active!
+2025-08-14 13:05:38,908 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:23:19,751 - INFO -  * Restarting with stat
+2025-08-14 13:23:20,523 - WARNING -  * Debugger is active!
+2025-08-14 13:23:20,526 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:27:51,268 - INFO -  * Detected change in 'C:\\Users\\kubra\\sensicup-app\\sensicup_app.py', reloading
+2025-08-14 13:27:51,357 - INFO -  * Restarting with stat
+2025-08-14 13:27:52,175 - WARNING -  * Debugger is active!
+2025-08-14 13:27:52,178 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:29:41,884 - INFO -  * Detected change in 'C:\\Users\\kubra\\sensicup-app\\sensicup_app.py', reloading
+2025-08-14 13:29:41,960 - INFO -  * Restarting with stat
+2025-08-14 13:29:42,815 - WARNING -  * Debugger is active!
+2025-08-14 13:29:42,818 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:30:27,400 - INFO -  * Detected change in 'C:\\Users\\kubra\\sensicup-app\\sensicup_app.py', reloading
+2025-08-14 13:30:27,522 - INFO -  * Restarting with stat
+2025-08-14 13:30:28,345 - WARNING -  * Debugger is active!
+2025-08-14 13:30:28,350 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:37:08,557 - INFO -  * Detected change in 'C:\\Users\\kubra\\sensicup-app\\sensicup_app.py', reloading
+2025-08-14 13:37:08,630 - INFO -  * Restarting with stat
+2025-08-14 13:37:09,492 - WARNING -  * Debugger is active!
+2025-08-14 13:37:09,497 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:38:06,047 - INFO -  * Detected change in 'C:\\Users\\kubra\\sensicup-app\\sensicup_app.py', reloading
+2025-08-14 13:38:06,129 - INFO -  * Restarting with stat
+2025-08-14 13:38:06,964 - WARNING -  * Debugger is active!
+2025-08-14 13:38:06,971 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:39:32,501 - INFO -  * Detected change in 'C:\\Users\\kubra\\sensicup-app\\sensicup_app.py', reloading
+2025-08-14 13:39:32,571 - INFO -  * Restarting with stat
+2025-08-14 13:39:33,380 - WARNING -  * Debugger is active!
+2025-08-14 13:39:33,386 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:42:08,268 - INFO -  * Detected change in 'C:\\Users\\kubra\\sensicup-app\\sensicup_app.py', reloading
+2025-08-14 13:42:08,341 - INFO -  * Restarting with stat
+2025-08-14 13:42:09,120 - WARNING -  * Debugger is active!
+2025-08-14 13:42:09,126 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:42:15,298 - INFO -  * Detected change in 'C:\\Users\\kubra\\sensicup-app\\sensicup_app.py', reloading
+2025-08-14 13:42:15,375 - INFO -  * Restarting with stat
+2025-08-14 13:42:16,208 - WARNING -  * Debugger is active!
+2025-08-14 13:42:16,214 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:43:07,038 - INFO -  * Detected change in 'C:\\Users\\kubra\\sensicup-app\\sensicup_app.py', reloading
+2025-08-14 13:43:07,106 - INFO -  * Restarting with stat
+2025-08-14 13:43:07,934 - WARNING -  * Debugger is active!
+2025-08-14 13:43:07,939 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:46:47,241 - INFO -  * Restarting with stat
+2025-08-14 13:46:48,055 - WARNING -  * Debugger is active!
+2025-08-14 13:46:48,057 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:52:52,832 - INFO -  * Restarting with stat
+2025-08-14 13:52:53,623 - WARNING -  * Debugger is active!
+2025-08-14 13:52:53,625 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 13:56:17,179 - INFO -  * Restarting with stat
+2025-08-14 13:56:17,951 - WARNING -  * Debugger is active!
+2025-08-14 13:56:17,954 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 14:27:40,189 - INFO -  * Restarting with stat
+2025-08-14 14:27:41,477 - WARNING -  * Debugger is active!
+2025-08-14 14:27:41,482 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 14:47:14,217 - INFO -  * Restarting with stat
+2025-08-14 14:47:15,909 - WARNING -  * Debugger is active!
+2025-08-14 14:47:15,916 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 15:10:49,243 - INFO -  * Restarting with stat
+2025-08-14 15:10:50,748 - WARNING -  * Debugger is active!
+2025-08-14 15:10:50,755 - INFO -  * Debugger PIN: 929-544-025
+2025-08-14 15:20:59,650 - INFO -  * Restarting with stat
+2025-08-14 15:21:00,980 - WARNING -  * Debugger is active!
+2025-08-14 15:21:00,984 - INFO -  * Debugger PIN: 929-544-025

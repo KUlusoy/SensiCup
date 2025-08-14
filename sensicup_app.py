@@ -1,5 +1,5 @@
 #sensicup_app.py
-from flask import Flask, render_template, request, jsonify, redirect, url_for, Response, send_from_directory
+from flask import Flask, render_template, request, jsonify, redirect, url_for, Response, send_from_directory, send_file
 from flask_socketio import SocketIO, emit
 import sqlite3
 import json
@@ -8,12 +8,14 @@ from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import cv2 # Import OpenCV
-# Add this import at the top
+import cv2
 import logging
 import requests
 import threading
 import time
+import zipfile
+import io
+import shutil
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -32,6 +34,12 @@ EMAIL_PASSWORD = "rbie ebnn phut acnd"  # Use app password, not regular password
 def init_db():
     conn = sqlite3.connect('water_quality.db')
     cursor = conn.cursor()
+    
+    # Create the uploads directory if it doesn't exist
+    UPLOAD_FOLDER = 'uploads'
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+        print(f"Created upload directory: {UPLOAD_FOLDER}")
     
     # Check if temperature column exists, add it if it doesn't
     cursor.execute("PRAGMA table_info(sensor_readings)")
@@ -55,16 +63,31 @@ def init_db():
         # Add temperature column if table exists but column doesn't
         cursor.execute('ALTER TABLE sensor_readings ADD COLUMN temperature REAL DEFAULT 25.0')
     
+    # Create a table for user databases
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS user_photos (
+        CREATE TABLE IF NOT EXISTS user_databases (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cup_id TEXT,
-            description TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            date_created DATE DEFAULT CURRENT_DATE
         )
     ''')
+    
+    # Create a new table to store paths for photos associated with each database
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS database_photos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            database_id INTEGER,
+            file_path TEXT NOT NULL,
+            FOREIGN KEY (database_id) REFERENCES user_databases(id) ON DELETE CASCADE
+        )
+    ''')
+    
     conn.commit()
     conn.close()
+
+# Define the directory to store uploaded files
+app.config['UPLOAD_FOLDER'] = 'uploads'
 
 def fetch_sensicup_snapshot():
     """Fetch a single snapshot from Raspberry Pi stream and save as static/sensicup.jpg"""
@@ -220,38 +243,47 @@ def update_cleanliness_with_ml(cup_id, ph, tds, temperature, salinity):
 
 def calculate_fallback_score(ph, tds, salinity):
     """
-    Simple fallback calculation when ML model isn't available
-    This is similar to your existing thresholds
+    Updated fallback calculation with same strict thresholds
     """
     score = 0
     
-    # pH scoring (40 points max)
-    if 6.5 <= ph <= 8.5:  # Safe (Good)
-        score += 40
-    elif 6.0 <= ph < 6.5 or 8.5 < ph <= 9.0:
-        score += 25
-    else:
-        score += 10
-        
-    # TDS scoring (35 points max)
-    if 50 <= tds <= 150:  # Excellent
+    # pH scoring (45 points max - higher weight in fallback)
+    if 6.8 <= ph <= 8.2:
+        score += 45
+    elif 6.5 <= ph < 6.8 or 8.2 < ph <= 8.5:
         score += 35
-    elif 150 < tds <= 300:  # Good
-        score += 25
-    elif 300 < tds <= 500:  # Acceptable
-        score += 15
+    elif 6.0 <= ph < 6.5 or 8.5 < ph <= 9.0:
+        score += 20
+    elif 5.5 <= ph < 6.0 or 9.0 < ph <= 9.5:
+        score += 8
     else:
-        score += 5
+        score += 0
         
-    # Salinity scoring (25 points max)  
-    if salinity < 0.5:  # Fresh
+    # TDS scoring (40 points max)
+    if 50 <= tds <= 150:
+        score += 40
+    elif 150 < tds <= 250:
+        score += 32
+    elif tds < 50:
         score += 25
-    elif salinity < 1.0:  # Marginal
+    elif 250 < tds <= 400:
         score += 15
-    elif salinity < 2.0:  # Brackish
+    elif 400 < tds <= 600:
+        score += 6
+    else:  # >600 - dirty water
+        score += 0
+        
+    # Salinity scoring (15 points max)
+    if salinity < 0.3:
+        score += 15
+    elif salinity < 0.8:
         score += 10
+    elif salinity < 1.5:
+        score += 6
+    elif salinity < 3.0:
+        score += 3
     else:
-        score += 5
+        score += 0
     
     return min(score, 100)
 
@@ -281,28 +313,32 @@ def your_cup():
 def database():
     conn = sqlite3.connect('water_quality.db')
     cursor = conn.cursor()
+    
+    # Query for all databases, also getting the path of the first photo for the cover
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS user_databases (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL,
-            photo_count INTEGER DEFAULT 0,
-            date_created DATE DEFAULT CURRENT_DATE
-        )
+        SELECT 
+            ud.id, 
+            ud.name, 
+            ud.description, 
+            ud.date_created,
+            (SELECT file_path FROM database_photos WHERE database_id = ud.id ORDER BY id ASC LIMIT 1) as first_photo,
+            (SELECT COUNT(*) FROM database_photos WHERE database_id = ud.id) as photo_count
+        FROM user_databases ud
+        ORDER BY ud.date_created DESC
     ''')
-    cursor.execute('SELECT * FROM user_databases ORDER BY date_created DESC')
+    
     databases = []
     for row in cursor.fetchall():
         databases.append({
             'id': row[0],
             'name': row[1],
             'description': row[2],
-            'photo_count': row[3],
-            'date_created': row[4]
+            'date_created': row[3],
+            'first_photo_path': row[4] if row[4] else None, # Pass the path or None if no photos
+            'photo_count': row[5]
         })
 
     conn.close()
-
     return render_template('database.html', databases=databases)
 
 # Contact page
@@ -423,40 +459,32 @@ def submit_photo():
         description = request.form['description']
         photos = request.files.getlist('photos')
         
-        if not photos or len(photos) == 0:
-            return '''
-            <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-                <h1 style="color: #ff4444; margin-bottom: 2rem;">❌ Error!</h1>
-                <p style="font-size: 1.2rem; margin-bottom: 2rem;">Please select at least one photo.</p>
-                <a href="/database" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Database</a>
-            </div>
-            '''
+        if not photos or len(photos) == 0 or not database_name or not description:
+            return '''... (error message)'''
         
-        # Store database in database
         conn = sqlite3.connect('water_quality.db')
         cursor = conn.cursor()
         
-        # Create databases table if it doesn't exist
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS user_databases (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT NOT NULL,
-                photo_count INTEGER DEFAULT 0,
-                date_created DATE DEFAULT CURRENT_DATE
-            )
-        ''')
+            INSERT INTO user_databases (name, description)
+            VALUES (?, ?)
+        ''', (database_name, description))
         
-        # Insert new database
-        cursor.execute('''
-            INSERT INTO user_databases (name, description, photo_count)
-            VALUES (?, ?, ?)
-        ''', (database_name, description, len(photos)))
-        
-        # You can also save the actual photo files here if needed
-        # for photo in photos:
-        #     if photo.filename != '':
-        #         photo.save(f"uploads/{photo.filename}")
+        database_id = cursor.lastrowid
+        db_upload_path = os.path.join(app.config['UPLOAD_FOLDER'], str(database_id))
+        if not os.path.exists(db_upload_path):
+            os.makedirs(db_upload_path)
+
+        for photo in photos:
+            if photo.filename != '':
+                filename = photo.filename
+                file_path = os.path.join(db_upload_path, filename)
+                photo.save(file_path)
+                
+                cursor.execute('''
+                    INSERT INTO database_photos (database_id, file_path)
+                    VALUES (?, ?)
+                ''', (database_id, file_path))
         
         conn.commit()
         conn.close()
@@ -470,13 +498,7 @@ def submit_photo():
         '''.format(len(photos))
         
     except Exception as e:
-        return '''
-        <div style="text-align: center; padding: 5rem; font-family: 'Segoe UI', sans-serif;">
-            <h1 style="color: #ff4444; margin-bottom: 2rem;">❌ Error!</h1>
-            <p style="font-size: 1.2rem; margin-bottom: 2rem;">Something went wrong. Please try again.</p>
-            <a href="/database" style="background: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px;">Back to Database</a>
-        </div>
-        '''
+        return f'''... (error message)'''
 
 # Handle database deletion
 @app.route('/delete-database', methods=['POST'])
@@ -486,14 +508,59 @@ def delete_database():
         
         conn = sqlite3.connect('water_quality.db')
         cursor = conn.cursor()
+        
+        db_upload_path = os.path.join(app.config['UPLOAD_FOLDER'], str(database_id))
+        
         cursor.execute('DELETE FROM user_databases WHERE id = ?', (database_id,))
         conn.commit()
         conn.close()
         
+        if os.path.exists(db_upload_path):
+            shutil.rmtree(db_upload_path)
+        
         return redirect('/database')
         
     except Exception as e:
+        print(f"Error deleting database: {e}")
         return redirect('/database')
+    
+# Handle database download
+@app.route('/download_database/<int:database_id>')
+def download_database(database_id):
+    conn = sqlite3.connect('water_quality.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT name FROM user_databases WHERE id = ?', (database_id,))
+    db_name = cursor.fetchone()[0]
+    cursor.execute('SELECT file_path FROM database_photos WHERE database_id = ?', (database_id,))
+    photo_paths = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    memory_file = io.BytesIO()
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for photo_path in photo_paths:
+            zipf.write(photo_path, os.path.basename(photo_path))
+    memory_file.seek(0)
+    
+    return send_file(memory_file, 
+                     download_name=f"{db_name}.zip",
+                     as_attachment=True,
+                     mimetype='application/zip')
+
+# New route to serve images from the uploads folder
+@app.route('/display_photo/<path:filename>')
+def display_photo(filename):
+    return send_file(filename)
+
+# New route to get all photo paths for a specific database as JSON
+@app.route('/get_photos/<int:database_id>')
+def get_photos(database_id):
+    conn = sqlite3.connect('water_quality.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT file_path FROM database_photos WHERE database_id = ?', (database_id,))
+    photos = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(photos)
 
 # Update your existing API endpoint
 @app.route('/api/sensor-data', methods=['POST'])
