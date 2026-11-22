@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="static/SensiCup_logo.jpg" alt="SensiCup logo" width="180">
-</p>
-
 <h1 align="center">💧 SensiCup</h1>
 <p align="center"><i>a smart cup that tells you what's actually in your water</i></p>
 
@@ -14,17 +10,13 @@
 
 ---
 
-## 🌊 What is this?
+## What is this?
 
 The whole idea started with our school water fountain. Honestly, we had no idea if the water we were drinking every day was clean or not, and there wasn't really an easy way to check. That's basically why we built SensiCup.
 
 SensiCup is a cup with pH, TDS (total dissolved solids), salinity, and temperature sensors built in. The sensors connect to an ESP32, which then sends the readings to a website in real time. On top of that, a machine learning model looks at all four readings together and gives the water a cleanliness score from 0 to 100, so you don't have to be a chemist to understand the results.
 
-<p align="center">
-  <img src="static/final_prototype.jpg" alt="SensiCup final prototype" width="400">
-</p>
-
-## 📌 What it can do
+## What it can do
 
 - **Live sensor readings.** As soon as the cup takes a reading, it shows up on the site without refreshing, thanks to Flask-SocketIO.
 - **A cleanliness score.** An XGBoost model weighs pH the most, then TDS, then temperature, and finally salinity, and turns all of that into one easy number.
@@ -33,7 +25,7 @@ SensiCup is a cup with pH, TDS (total dissolved solids), salinity, and temperatu
 - **Pop-up explainers.** If you don't know what TDS or salinity means (which, fair), you can click on it and get a quick explanation with a diagram.
 - **A working contact form** that emails our team directly.
 
-## 🛠️ Built with
+## Built with
 
 | Part | What we used |
 |---|---|
@@ -43,7 +35,7 @@ SensiCup is a cup with pH, TDS (total dissolved solids), salinity, and temperatu
 | Camera | OpenCV |
 | Frontend | HTML, CSS, JavaScript |
 
-## 🚀 Running it yourself
+## Running it yourself
 
 First, clone the repo and hop into the folder:
 
@@ -78,7 +70,7 @@ python sensicup_app.py
 
 Then open the link it prints in your browser, and you're good to go. If you don't have the physical cup, you can still visit `/test-data/<cup_id>` to send in fake readings and see how everything works.
 
-## 📁 How it's organized
+## How it's organized
 
 ```
 SensiCup/
@@ -90,14 +82,11 @@ SensiCup/
 └── static/                   # images, diagrams, and the logo
 ```
 
-## 💭 What I learned
+## What I learned
 
 Honestly, getting the hardware and the website to talk to each other was the hardest part. At first, the TDS sensor was the only one updating live, and then getting all four sensors running through the ESP32 at the same time took a lot of trial and error. Also, deploying to Heroku with SocketIO was its own adventure. Still, seeing the numbers pop up on the site in real time for the first time made all of it worth it.
 
-## 👯 The team
+## The team
 
 Built with [@stephanieyangg](https://github.com/stephanieyangg) and the rest of the SensiCup team.
 
-<p align="center">
-  <img src="static/GroupImage.JPG" alt="The SensiCup team" width="400">
-</p>
