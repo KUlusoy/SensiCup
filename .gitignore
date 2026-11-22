@@ -1,0 +1,18 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# secrets
+.env
+
+# local data and logs
+*.log
+water_quality.db
+uploads/
+
+# OS junk
+desktop.ini
+.DS_Store
+Thumbs.db

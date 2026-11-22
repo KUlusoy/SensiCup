@@ -18,7 +18,7 @@ import io
 import shutil
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
 
 # Create static folder if it doesn't exist
 if not os.path.exists('static'):
@@ -27,8 +27,8 @@ if not os.path.exists('static'):
 socketio = SocketIO(app)
 
 # Email configuration
-EMAIL_ADDRESS = "sensicupteam@gmail.com"
-EMAIL_PASSWORD = "rbie ebnn phut acnd"  # Use app password, not regular password
+EMAIL_ADDRESS = os.environ.get("EMAIL_ADDRESS", "")
+EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD", "")  # set this as an environment variable, never in the code
 
 # Initialize database with proper schema
 def init_db():
