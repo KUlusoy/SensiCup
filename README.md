@@ -14,9 +14,9 @@
 
 ---
 
-## 🌊 So, what is this?
+## 🌊 What is this?
 
-Okay, so the whole idea started with our school water fountain. Honestly, we had no idea if the water we were drinking every day was clean or not, and there wasn't really an easy way to check. That's basically why we built SensiCup.
+The whole idea started with our school water fountain. Honestly, we had no idea if the water we were drinking every day was clean or not, and there wasn't really an easy way to check. That's basically why we built SensiCup.
 
 SensiCup is a cup with pH, TDS (total dissolved solids), salinity, and temperature sensors built in. The sensors connect to an ESP32, which then sends the readings to a website in real time. On top of that, a machine learning model looks at all four readings together and gives the water a cleanliness score from 0 to 100, so you don't have to be a chemist to understand the results.
 
@@ -24,7 +24,7 @@ SensiCup is a cup with pH, TDS (total dissolved solids), salinity, and temperatu
   <img src="static/final_prototype.jpg" alt="SensiCup final prototype" width="400">
 </p>
 
-## ✨ What it can do
+## 📌 What it can do
 
 - **Live sensor readings.** As soon as the cup takes a reading, it shows up on the site without refreshing, thanks to Flask-SocketIO.
 - **A cleanliness score.** An XGBoost model weighs pH the most, then TDS, then temperature, and finally salinity, and turns all of that into one easy number.
@@ -60,7 +60,7 @@ source venv/bin/activate      # on Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-After that, the contact form needs an email login to send messages. So, set these environment variables with your own Gmail and an app password:
+After that, the contact form needs an email login to send messages, so set these environment variables with your own Gmail and an app password:
 
 ```bash
 export EMAIL_ADDRESS="your-email@gmail.com"
